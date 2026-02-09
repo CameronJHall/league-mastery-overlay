@@ -1,10 +1,10 @@
 ﻿<h1 align="center">League Mastery Overlay</h1>
 
-<h4 align="center">git remote add origin https://github.com/CameronJHall/league-mastery-overlay.git</h4>
+<h4 align="center">a Windows desktop overlay to display champion mastery info during ARAM champ select</h4>
 
 <p align="center">
     <img src="https://img.shields.io/badge/lisence-MIT-blue" alt="MIT License">
-    <img src="  https://img.shields.io/badge/c%23-green" alt="c#">
+    <img src="https://img.shields.io/badge/c%23-green" alt="c#">
 </p>
 
 <p align="center">
