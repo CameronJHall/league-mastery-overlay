@@ -58,3 +58,7 @@ nunit-*.xml
 
 # Idea
 .idea/*
+
+# Development
+example_*
+Screenshot*

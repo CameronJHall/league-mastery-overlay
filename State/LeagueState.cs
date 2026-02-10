@@ -12,8 +12,14 @@ public record LeagueState(
     ChampionSelectState? ChampionSelect
 );
 
-public record ChampionSelectState(
-    string? MyChampion,
-    string[] Picks,
-    string[] Bans
+public record ChampionData(
+    int Id,
+    int Level,
+    float MasteryProgress
 );
+
+public record ChampionSelectState(
+    ChampionData? MyChampion,
+    ChampionData[] BenchChampions
+);
+

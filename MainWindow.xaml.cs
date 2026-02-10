@@ -18,11 +18,19 @@ public partial class MainWindow : Window
     private readonly StateStore _stateStore = new();
     private OverlayRenderer? _renderer;
     private DispatcherTimer? _renderTimer;
+    private WindowTracker? _windowTracker;
+    private GridMapper? _gridMapper;
 
     public MainWindow()
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        Closing += OnClosing;
+    }
+
+    public void ToggleDebugGrid()
+    {
+        _gridMapper?.Toggle();
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -35,36 +43,51 @@ public partial class MainWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        _renderer = new OverlayRenderer(RootCanvas, _stateStore);
+        _gridMapper = new GridMapper(RootCanvas);
+        _renderer = new OverlayRenderer(RootCanvas, _stateStore, _gridMapper);
+        _windowTracker = new WindowTracker(this);
 
+        // Render timer - updates UI at ~30 FPS
         _renderTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(33)
         };
-        _renderTimer.Tick += (_, _) => _renderer.Render();
+        _renderTimer.Tick += (_, _) =>
+        {
+            _renderer.Render();
+            _windowTracker.UpdatePosition();
+        };
         _renderTimer.Start();
 
         var authProvider = new LcuAuthProvider();
+        LcuClient? client = null;
+        ChampionSelectService? service = null;
 
         var lcuLoop = new PollingLoop(async () =>
         {
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Polling tick started");
-            
+        
             if (!authProvider.TryGetAuth(out var auth))
             {
                 Debug.WriteLine("  → No auth available");
-                Dispatcher.Invoke(() => DebugText.Text = "Waiting for League...");
+                Dispatcher.BeginInvoke(() => DebugText.Text = "Waiting for League...");
+            
+                client?.Dispose();
+                client = null;
+                service = null;
                 return;
             }
-            
-            Debug.WriteLine($"  → Auth found: {auth.Port}");
-            
-            var client = new LcuClient(auth);
-            var service = new ChampionSelectService(client);
-            
-            var champSelect = await service.PollAsync();
+        
+            if (client == null)
+            {
+                Debug.WriteLine($"  → Creating new client for port {auth.Port}");
+                client = new LcuClient(auth);
+                service = new ChampionSelectService(client);
+            }
+        
+            var champSelect = await service!.PollAsync();
             Debug.WriteLine($"  → ChampSelect result: {champSelect != null}");
-            
+        
             _stateStore.Update(
                 new LeagueState(
                     champSelect != null ? GamePhase.ChampSelect : GamePhase.None,
@@ -75,8 +98,15 @@ public partial class MainWindow : Window
         }, TimeSpan.FromMilliseconds(500));
 
         lcuLoop.Start();
-
-        
-        // TODO: start League window tracking
     }
+    
+    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        // Clean up tray icon
+        var trayIcon = TryFindResource("TrayIcon") as Hardcodet.Wpf.TaskbarNotification.TaskbarIcon;
+        trayIcon?.Dispose();
+    }
+
+    
+    
 }

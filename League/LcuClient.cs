@@ -7,9 +7,11 @@ using System.Threading.Tasks;
 
 namespace league_mastery_overlay.League;
 
-public sealed class LcuClient
+public sealed class LcuClient : IDisposable
 {
     private readonly HttpClient _client;
+    private bool _disposed = false;
+    
     private static readonly JsonSerializerOptions JsonOptions =
         new() { PropertyNameCaseInsensitive = true };
 
@@ -23,7 +25,8 @@ public sealed class LcuClient
 
         _client = new HttpClient(handler)
         {
-            BaseAddress = new Uri($"https://127.0.0.1:{auth.Port}")
+            BaseAddress = new Uri($"https://127.0.0.1:{auth.Port}"),
+            Timeout = TimeSpan.FromSeconds(5)
         };
 
         string token = Convert.ToBase64String(
@@ -36,6 +39,9 @@ public sealed class LcuClient
 
     public async Task<T?> GetAsync<T>(string endpoint)
     {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(LcuClient));
+            
         try
         {
             var response = await _client.GetAsync(endpoint);
@@ -45,9 +51,19 @@ public sealed class LcuClient
             var stream = await response.Content.ReadAsStreamAsync();
             return await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions);
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[LcuClient] Request failed: {ex.Message}");
             return default;
         }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+            
+        _client?.Dispose();
+        _disposed = true;
     }
 }

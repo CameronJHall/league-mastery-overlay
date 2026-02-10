@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,6 +10,7 @@ public sealed class PollingLoop
     private readonly Func<Task> _tick;
     private readonly TimeSpan _interval;
     private CancellationTokenSource? _cts;
+    private Task? _loopTask;
 
     public PollingLoop(Func<Task> tick, TimeSpan interval)
     {
@@ -19,18 +21,43 @@ public sealed class PollingLoop
     public void Start()
     {
         _cts = new CancellationTokenSource();
-        Task.Run(async () =>
+        _loopTask = Task.Run(async () =>
         {
-            while (!_cts.IsCancellationRequested)
+            Debug.WriteLine("[PollingLoop] Started");
+            
+            while (!_cts.Token.IsCancellationRequested)
             {
-                await _tick();
-                await Task.Delay(_interval);
+                try
+                {
+                    await _tick();
+                }
+                catch (Exception ex)
+                {
+                    // Catch exceptions from the tick function so the loop continues
+                    Debug.WriteLine($"[PollingLoop] Tick exception: {ex.GetType().Name}: {ex.Message}");
+                    Debug.WriteLine($"  StackTrace: {ex.StackTrace}");
+                }
+
+                try
+                {
+                    await Task.Delay(_interval, _cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected when stopping
+                    Debug.WriteLine("[PollingLoop] Cancelled");
+                    break;
+                }
             }
-        });
+            
+            Debug.WriteLine("[PollingLoop] Exited");
+        }, _cts.Token);
     }
 
     public void Stop()
     {
+        Debug.WriteLine("[PollingLoop] Stopping...");
         _cts?.Cancel();
+        _loopTask?.Wait(TimeSpan.FromSeconds(2));
     }
 }
