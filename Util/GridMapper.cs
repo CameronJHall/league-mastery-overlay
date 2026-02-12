@@ -10,24 +10,11 @@ namespace league_mastery_overlay.Util;
 public sealed class GridMapper
 {
     private readonly Canvas _canvas;
-    private readonly TextBlock _mousePos;
     private bool _isActive = false;
 
     public GridMapper(Canvas canvas)
     {
         _canvas = canvas;
-        
-        // Create persistent mouse position tracker
-        _mousePos = new TextBlock
-        {
-            Foreground = Brushes.Yellow,
-            FontSize = 16,
-            FontWeight = FontWeights.Bold,
-            Background = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0)),
-            Padding = new Thickness(8)
-        };
-        
-        _canvas.MouseMove += OnMouseMove;
     }
 
     public void Toggle()
@@ -47,12 +34,6 @@ public sealed class GridMapper
     public void Render()
     {
         if (!_isActive) return;
-
-        // Re-add grid elements if they were cleared
-        if (!_canvas.Children.Contains(_mousePos))
-        {
-            ShowGrid();
-        }
     }
 
     private void ShowGrid()
@@ -119,14 +100,6 @@ public sealed class GridMapper
             Canvas.SetTop(label, y + 2);
             _canvas.Children.Add(label);
         }
-
-        // Add mouse position tracker
-        _mousePos.Text = "Mouse: (0, 0) | Press G to toggle grid";
-        Canvas.SetLeft(_mousePos, 10);
-        Canvas.SetTop(_mousePos, 10);
-        Canvas.SetZIndex(_mousePos, 9999); // Always on top
-        _mousePos.Tag = "DebugGrid";
-        _canvas.Children.Add(_mousePos);
     }
 
     private void HideGrid()
@@ -141,13 +114,5 @@ public sealed class GridMapper
         {
             _canvas.Children.Remove(element);
         }
-    }
-
-    private void OnMouseMove(object sender, MouseEventArgs e)
-    {
-        if (!_isActive) return;
-
-        var pos = e.GetPosition(_canvas);
-        _mousePos.Text = $"Mouse: ({pos.X:F0}, {pos.Y:F0}) | Press G to toggle grid";
     }
 }
