@@ -1,0 +1,31 @@
+﻿name: Build Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build Release
+      run: dotnet build --configuration Release --no-restore
+    
+    - name: Upload artifact to release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: bin/Release/net10.0-windows/league-mastery-overlay.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
