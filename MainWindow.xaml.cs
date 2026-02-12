@@ -6,6 +6,7 @@ using league_mastery_overlay.State;
 using league_mastery_overlay.Win32;
 using league_mastery_overlay.League;
 using league_mastery_overlay.Util;
+using league_mastery_overlay.Layout;
 using System.Diagnostics;
 
 namespace league_mastery_overlay;
@@ -44,7 +45,8 @@ public partial class MainWindow : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _gridMapper = new GridMapper(RootCanvas);
-        _renderer = new OverlayRenderer(RootCanvas, _stateStore, _gridMapper);
+        var layout = new OverlayLayout();
+        _renderer = new OverlayRenderer(RootCanvas, _stateStore, layout, _gridMapper);
         _windowTracker = new WindowTracker(this);
 
         // Render timer - updates UI at ~30 FPS
@@ -54,6 +56,8 @@ public partial class MainWindow : Window
         };
         _renderTimer.Tick += (_, _) =>
         {
+            // Update window size if it changed (layout recalculates if needed)
+            _renderer.UpdateWindowSize(new Size(RootCanvas.ActualWidth, RootCanvas.ActualHeight));
             _renderer.Render();
             _windowTracker.UpdatePosition();
         };

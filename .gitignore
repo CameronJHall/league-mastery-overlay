@@ -58,6 +58,8 @@ nunit-*.xml
 
 # Idea
 .idea/*
+*.sln.iml
+*.DotSettings.user
 
 # Development
 example_*
