@@ -79,27 +79,27 @@ public sealed class OverlayRenderer
         if (state.ChampionSelect?.MyChampion != null)
         {
             var icon = CreateMasteryIcon(state.ChampionSelect.MyChampion);
-            PlaceElement(icon, _layout.PlayerChampionRect);
+            PlaceElement(icon, _layout.PlayerChampionPos);
             _root.Children.Add(icon);
         }
 
         // Render bench champions at their grid positions
         var benchChampions = state.ChampionSelect?.BenchChampions ?? Array.Empty<ChampionData>();
-        for (int i = 0; i < benchChampions.Length && i < _layout.BenchIconRects.Length; i++)
+        for (int i = 0; i < benchChampions.Length && i < _layout.BenchIconPositions.Length; i++)
         {
             var icon = CreateMasteryIcon(benchChampions[i]);
-            PlaceElement(icon, _layout.BenchIconRects[i]);
+            PlaceElement(icon, _layout.BenchIconPositions[i]);
             _root.Children.Add(icon);
         }
     }
 
     /// <summary>
-    /// Places a UI element at a calculated rectangle position.
+    /// Places a UI element at a calculated position.
     /// </summary>
-    private void PlaceElement(FrameworkElement element, Rect position)
+    private void PlaceElement(FrameworkElement element, Point position)
     {
-        Canvas.SetLeft(element, position.Left);
-        Canvas.SetTop(element, position.Top);
+        Canvas.SetLeft(element, position.X);
+        Canvas.SetTop(element, position.Y);
         Canvas.SetZIndex(element, 100);
     }
 

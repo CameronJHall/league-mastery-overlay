@@ -1,4 +1,4 @@
-﻿<h1 align="center">League Mastery Overlay</h1>
+﻿﻿<h1 align="center">League Mastery Overlay</h1>
 
 <h4 align="center">a Windows desktop overlay to display champion mastery info during ARAM champ select</h4>
 
@@ -11,6 +11,7 @@
   <a href="#why">Why</a> •
   <a href="#how-it-works">How It Works</a> •
   <a href="#status">Status</a> •
+  <a href="#development">Development</a> •
   <a href="#disclaimer">Disclaimer</a>
 </p>
 
@@ -32,6 +33,16 @@ Tracks the LeagueClientUx.exe window and positions itself accordingly.
 
 Project skeleton and LCU integration are in place.
 UI rendering for champion select is still in progress.
+
+## Development
+
+This project was built largely with the help of AI (GitHub Copilot). While the core architecture, design decisions, and feature requirements were determined by myself, AI assisted significantly with:
+
+- Code structure and implementation
+- API integration objects
+- Debugging and optimization
+
+Using Copilot allowed for much faster development than I would have been able to achieve on my own for a beginner C# project. That said, I want to revise a lot of the patterns to make them more intuitive.
 
 ## Disclaimer
 
