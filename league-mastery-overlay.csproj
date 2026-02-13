@@ -7,12 +7,13 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <UseWPF>true</UseWPF>
-        <!-- Self-contained deployment (without trimming due to WPF compatibility) -->
+        <!-- Self-contained deployment as single file -->
         <PublishSelfContained>true</PublishSelfContained>
         <SelfContained>true</SelfContained>
         <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-        <!-- Single file executable for easier distribution -->
         <PublishSingleFile>true</PublishSingleFile>
+        <PublishReadyToRun>true</PublishReadyToRun>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     </PropertyGroup>
 
     <ItemGroup>
@@ -26,5 +27,7 @@
     </ItemGroup>
 
 </Project>
+
+
 
 
