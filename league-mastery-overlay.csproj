@@ -7,6 +7,12 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <UseWPF>true</UseWPF>
+        <!-- Self-contained deployment (without trimming due to WPF compatibility) -->
+        <PublishSelfContained>true</PublishSelfContained>
+        <SelfContained>true</SelfContained>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+        <!-- Single file executable for easier distribution -->
+        <PublishSingleFile>true</PublishSingleFile>
     </PropertyGroup>
 
     <ItemGroup>
@@ -18,5 +24,7 @@
           <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Resource>
     </ItemGroup>
-    
+
 </Project>
+
+

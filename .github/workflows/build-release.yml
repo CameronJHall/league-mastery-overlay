@@ -19,12 +19,12 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     
-    - name: Build Release
-      run: dotnet build --configuration Release --no-restore
+    - name: Publish Release
+      run: dotnet publish --configuration Release --no-restore
     
     - name: Generate checksums
       run: |
-        $exe = "bin/Release/net10.0-windows/league-mastery-overlay.exe"
+        $exe = "bin/Release/net10.0-windows/win-x64/publish/league-mastery-overlay.exe"
         $sha256 = (Get-FileHash $exe -Algorithm SHA256).Hash
         $md5 = (Get-FileHash $exe -Algorithm MD5).Hash
         Add-Content -Path "checksums.txt" -Value "SHA256: $sha256"
@@ -36,7 +36,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          bin/Release/net10.0-windows/league-mastery-overlay.exe
+          bin/Release/net10.0-windows/win-x64/publish/league-mastery-overlay.exe
           checksums.txt
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
