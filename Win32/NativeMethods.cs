@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 
 namespace league_mastery_overlay.Win32;
@@ -35,7 +35,7 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
-    [DllImport("user32.dll")]
+     [DllImport("user32.dll")]
     private static extern int SetWindowLong(
         IntPtr hWnd,
         int nIndex,
