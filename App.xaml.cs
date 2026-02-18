@@ -1,10 +1,11 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Diagnostics;
 using System.Drawing;
 using System.Windows.Forms;
 using Application = System.Windows.Application;
 using MessageBox = System.Windows.MessageBox;
 using Hardcodet.Wpf.TaskbarNotification;
+using league_mastery_overlay.Util;
 
 namespace league_mastery_overlay;
 
@@ -17,6 +18,13 @@ public partial class App : Application
     private MainWindow M => Current.MainWindow as MainWindow;
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Check if another instance is already running
+        if (!SingleInstanceManager.AcquireInstance())
+        {
+            Current.Shutdown();
+            return;
+        }
+
         // Catch UI thread exceptions
         DispatcherUnhandledException += (sender, args) =>
         {
@@ -53,6 +61,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _trayIcon?.Dispose();
+        SingleInstanceManager.ReleaseInstance();
         base.OnExit(e);
     }
     
