@@ -56,6 +56,7 @@ public partial class App : Application
         base.OnStartup(e);
         
         _trayIcon = (TaskbarIcon)FindResource("TrayIcon");
+        _trayIcon.ShowBalloonTip("League Mastery Overlay", "Overlay is running.", BalloonIcon.None);
     }
     
     protected override void OnExit(ExitEventArgs e)
