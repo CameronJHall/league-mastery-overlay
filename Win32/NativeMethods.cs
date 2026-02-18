@@ -22,11 +22,6 @@ internal static class NativeMethods
         );
     }
 
-    public static void SetForegroundWindow(IntPtr hwnd)
-    {
-        SetForegroundWindowInternal(hwnd);
-    }
-
     #region Win32
 
     private const int GWL_EXSTYLE = -20;
@@ -51,9 +46,6 @@ internal static class NativeMethods
     private static extern bool SetProcessDpiAwarenessContext(
         IntPtr value
     );
-
-    [DllImport("user32.dll")]
-    private static extern bool SetForegroundWindowInternal(IntPtr hWnd);
 
     #endregion
 }
