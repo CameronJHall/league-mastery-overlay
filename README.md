@@ -31,8 +31,10 @@ Tracks the LeagueClientUx.exe window and positions itself accordingly.
 
 ## Status
 
-Project skeleton and LCU integration are in place.
-UI rendering for champion select is still in progress.
+The basic implementation is complete and functional. It can read the mastery data for the champion being hovered in champ
+select and display the appropriate mastery level as an overlay on top of the client. It also shows progress towards the
+next mastery level as a circular progress bar around the level icon. There is a basic status bar icon that has a 
+context menu with a basic debugging option.
 
 ## Development
 
@@ -43,6 +45,11 @@ This project was built largely with the help of AI (GitHub Copilot). While the c
 - Debugging and optimization
 
 Using Copilot allowed for much faster development than I would have been able to achieve on my own for a beginner C# project. That said, I want to revise a lot of the patterns to make them more intuitive.
+
+## Upcoming Feature
+
+- Show an idle animation in client outside of champ select (pending layering solution)
+- Add a settings menu to configure which mastery levels to show, toggle animations, etc.
 
 ## Disclaimer
 
