@@ -17,15 +17,13 @@ namespace league_mastery_overlay;
 public partial class MainWindow : Window
 {
     private readonly StateStore _stateStore = new();
-    private readonly ILeagueClient _league = new LeagueClient();
+    private readonly LeagueClient _league = new();
     private OverlayRenderer? _renderer;
     private DispatcherTimer? _renderTimer;
     private WindowTracker? _windowTracker;
     private GridMapper? _gridMapper;
     private PollingLoop? _gamePhaseLoop;
     private PollingLoop? _champSelectLoop;
-
-    private GamePhase _currentPhase = GamePhase.None;
 
     public MainWindow()
     {
@@ -86,15 +84,15 @@ public partial class MainWindow : Window
 
             if (!_league.TryConnect())
             {
-                TransitionTo(GamePhase.None);
+                await TransitionTo(GamePhase.None);
                 return;
             }
 
             var phase = await _league.GetGamePhaseAsync();
-            if (phase != _currentPhase)
+            if (phase != _stateStore.GetGamePhase())
             {
                 Debug.WriteLine("[MainWindow] Detected game phase change: " + phase);
-                TransitionTo(phase);
+                await TransitionTo(phase);
             }
             
 
@@ -106,15 +104,16 @@ public partial class MainWindow : Window
     /// <summary>
     /// Handles state transitions — fires OnExit/OnEnter side effects only when the phase changes.
     /// </summary>
-    private void TransitionTo(GamePhase newPhase)
+    private async Task TransitionTo(GamePhase newPhase)
     {
-        if (newPhase == _currentPhase)
+        var currentPhase = _stateStore.GetGamePhase();
+        if (newPhase == _stateStore.GetGamePhase())
             return;
 
-        Debug.WriteLine($"[MainWindow] Phase transition: {_currentPhase} → {newPhase}");
+        Debug.WriteLine($"[MainWindow] Phase transition: {currentPhase} → {newPhase}");
 
         // OnExit current state
-        switch (_currentPhase)
+        switch (currentPhase)
         {
             case GamePhase.ChampSelect:
                 _champSelectLoop?.Stop();
@@ -126,11 +125,11 @@ public partial class MainWindow : Window
         switch (newPhase)
         {
             case GamePhase.ChampSelect:
+                _stateStore.UpdateMasteryData(await _league.GetMasteryDataAsync());
                 _champSelectLoop?.Start();
                 break;
         }
-
-        _currentPhase = newPhase;
+        
         _stateStore.UpdateGamePhase(newPhase);
     }
 

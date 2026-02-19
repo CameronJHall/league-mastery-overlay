@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -78,16 +78,19 @@ public sealed class OverlayRenderer
         // Render my pick at the anchor position
         if (state.ChampionSelect?.MyChampion != null)
         {
-            var icon = CreateMasteryIcon(state.ChampionSelect.MyChampion);
+            var id = state.ChampionSelect.MyChampion.Value;
+            state.ChampMasteryData.TryGetValue(id, out var mastery);
+            var icon = CreateMasteryIcon(mastery);
             PlaceElement(icon, _layout.PlayerChampionPos);
             _root.Children.Add(icon);
         }
 
         // Render bench champions at their grid positions
-        var benchChampions = state.ChampionSelect?.BenchChampions ?? Array.Empty<ChampionData>();
-        for (int i = 0; i < benchChampions.Length && i < _layout.BenchIconPositions.Length; i++)
+        var benchIds = state.ChampionSelect?.BenchChampions ?? Array.Empty<int>();
+        for (int i = 0; i < benchIds.Length && i < _layout.BenchIconPositions.Length; i++)
         {
-            var icon = CreateMasteryIcon(benchChampions[i]);
+            state.ChampMasteryData.TryGetValue(benchIds[i], out var mastery);
+            var icon = CreateMasteryIcon(mastery);
             PlaceElement(icon, _layout.BenchIconPositions[i]);
             _root.Children.Add(icon);
         }
@@ -131,17 +134,20 @@ public sealed class OverlayRenderer
     /// Creates a small mastery icon for placement at anchor positions.
     /// The icon is color-coded by mastery level, with a circular border showing progress.
     /// </summary>
-    private Border CreateMasteryIcon(ChampionData champion)
+    private Border CreateMasteryIcon(MasteryData? mastery)
     {
         const double iconSize = 20;
         const double borderThickness = 2.0;
-        
+
+        int level = mastery?.Level ?? 0;
+        float progress = mastery?.MasteryProgress ?? 0f;
+
         // Color code by mastery level
-        Brush backgroundColor = champion.Level switch
+        Brush backgroundColor = level switch
         {
             >= 5 => new SolidColorBrush(Color.FromArgb(180, 190, 200, 255)), // Gold
             >= 1 => new SolidColorBrush(Color.FromArgb(180, 255, 215, 160)), // Bronze
-            _ => new SolidColorBrush(Color.FromArgb(144, 100, 100, 100)) // Gray - Not played
+            _ => new SolidColorBrush(Color.FromArgb(144, 100, 100, 100))     // Gray - Not played
         };
 
         // Create a grid to layer the background circle and progress circle
@@ -158,7 +164,7 @@ public sealed class OverlayRenderer
             CornerRadius = new CornerRadius(iconSize / 2),
             Child = new TextBlock
             {
-                Text = $"{champion.Level}",
+                Text = $"{level}",
                 FontSize = 11,
                 FontWeight = FontWeights.Bold,
                 Foreground = Brushes.Black,
@@ -173,7 +179,7 @@ public sealed class OverlayRenderer
         {
             Width = iconSize,
             Height = iconSize,
-            Stroke = GetProgressColor(champion.MasteryProgress),
+            Stroke = GetProgressColor(progress),
             StrokeThickness = borderThickness,
             RenderTransformOrigin = new Point(0.5, 0.5), // Rotate around center
             RenderTransform = new RotateTransform(-90) // Start from top, fill clockwise
@@ -182,7 +188,7 @@ public sealed class OverlayRenderer
         // Calculate dash array to show progress as a partial circle
         // Circumference = π * diameter
         double circumference = System.Math.PI * iconSize / 2;
-        double filledLength = circumference * champion.MasteryProgress;
+        double filledLength = circumference * progress;
         double gapLength = circumference - filledLength;
 
         progressBorder.StrokeDashArray = new System.Windows.Media.DoubleCollection { filledLength, gapLength };
