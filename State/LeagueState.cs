@@ -3,8 +3,13 @@
 public enum GamePhase
 {
     None,
+    Lobby,
+    Matchmaking,
+    ReadyCheck,
     ChampSelect,
-    InGame
+    InProgress,
+    PreEndOfGame,
+    EndOfGame
 }
 
 public record LeagueState(

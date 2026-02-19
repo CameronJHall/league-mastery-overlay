@@ -1,9 +1,9 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.IO;
 
 namespace league_mastery_overlay.League;
 
-public sealed class LcuAuthProvider
+internal sealed class LcuAuthProvider
 {
     public bool TryGetAuth(out LcuAuthInfo info)
     {

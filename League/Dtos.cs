@@ -1,16 +1,14 @@
-﻿namespace league_mastery_overlay.League;
+namespace league_mastery_overlay.League;
 
 using System.Collections.Generic;
 
-// TODO: mirror LCU JSON exactly (nullable everywhere)
-
-public sealed class LoginSessionDto
+internal sealed class LoginSessionDto
 {
     public string? Puuid { get; set; }
     public long? SummonerId { get; set; }
 }
 
-public sealed class ChampionMasteryDto
+internal sealed class ChampionMasteryDto
 {
     public int? ChampionId { get; set; }
     public int? ChampionLevel { get; set; }
@@ -19,7 +17,7 @@ public sealed class ChampionMasteryDto
     public int? ChampionPointsUntilNextLevel { get; set; }
 }
 
-public sealed class ChampionSelectDto
+internal sealed class ChampionSelectDto
 {
     public List<List<ChampionSelectAction>>? Actions { get; set; }
     public List<BenchChampion>? BenchChampions { get; set; }
@@ -28,7 +26,7 @@ public sealed class ChampionSelectDto
     public List<ChampionSelectPlayer>? MyTeam { get; set; }
 }
 
-public sealed class ChampionSelectAction
+internal sealed class ChampionSelectAction
 {
     public int? ActorCellId { get; set; }
     public int? ChampionId { get; set; }
@@ -38,28 +36,20 @@ public sealed class ChampionSelectAction
     public string? Type { get; set; }
 }
 
-public sealed class BenchChampion
+internal sealed class BenchChampion
 {
     public int? ChampionId { get; set; }
 }
 
-public sealed class ChampionSelectPlayer
+internal sealed class ChampionSelectPlayer
 {
     public int? CellId { get; set; }
     public int? ChampionId { get; set; }
     public int? ChampionPickIntent { get; set; }
 }
 
-public enum GameFlowPhaseDto
-{
-    None,
-    Lobby,
-    ChampSelect,
-    InProgress,
-    EndOfGame
-}
 
-public record LcuAuthInfo(
+internal record LcuAuthInfo(
     int Port,
     string Password
 );

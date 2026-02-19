@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace league_mastery_overlay.League;
 
-public sealed class LcuClient : IDisposable
+internal sealed class LcuClient : IDisposable
 {
     private readonly HttpClient _client;
     private bool _disposed = false;
@@ -35,6 +35,22 @@ public sealed class LcuClient : IDisposable
 
         _client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Basic", token);
+    }
+    
+    public async Task<bool> IsConnectedAsync()
+    {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(LcuClient));
+            
+        try
+        {
+            var response = await _client.GetAsync("/telemetry/v1/application-start-time");
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public async Task<T?> GetAsync<T>(string endpoint)
