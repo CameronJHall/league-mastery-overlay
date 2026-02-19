@@ -46,7 +46,7 @@ This project was built largely with the help of AI (GitHub Copilot). While the c
 
 Using Copilot allowed for much faster development than I would have been able to achieve on my own for a beginner C# project. That said, I want to revise a lot of the patterns to make them more intuitive.
 
-## Upcoming Feature
+## Upcoming Features
 
 - Show an idle animation in client outside of champ select (pending layering solution)
 - Add a settings menu to configure which mastery levels to show, toggle animations, etc.

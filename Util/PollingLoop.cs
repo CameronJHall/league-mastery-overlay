@@ -1,7 +1,4 @@
-﻿using System;
 using System.Diagnostics;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace league_mastery_overlay.Util;
 
@@ -11,6 +8,8 @@ public sealed class PollingLoop
     private readonly TimeSpan _interval;
     private CancellationTokenSource? _cts;
     private Task? _loopTask;
+
+    public bool IsRunning => _cts != null && !_cts.IsCancellationRequested;
 
     public PollingLoop(Func<Task> tick, TimeSpan interval)
     {
