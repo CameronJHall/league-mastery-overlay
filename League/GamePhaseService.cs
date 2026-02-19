@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using league_mastery_overlay.State;
 
 namespace league_mastery_overlay.League;

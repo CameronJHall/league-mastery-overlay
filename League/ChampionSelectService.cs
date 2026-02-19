@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Linq;
 using league_mastery_overlay.State;
 
 namespace league_mastery_overlay.League;
