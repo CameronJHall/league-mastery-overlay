@@ -37,4 +37,9 @@ public interface ILeagueClient : IDisposable
     /// Returns null if not in champion select.
     /// </summary>
     Task<ChampionSelectState?> GetChampionSelectStateAsync();
+    
+    /// <summary>
+    /// Polls the current champion mastery data.
+    /// </summary>
+    Task<Dictionary<int, MasteryData>> GetMasteryDataAsync();
 }

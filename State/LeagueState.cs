@@ -14,17 +14,16 @@ public enum GamePhase
 
 public record LeagueState(
     GamePhase Phase,
-    ChampionSelectState? ChampionSelect
+    ChampionSelectState? ChampionSelect,
+    Dictionary<int, MasteryData>  ChampMasteryData
 );
 
-public record ChampionData(
-    int Id,
+public record MasteryData(
     int Level,
     float MasteryProgress
 );
 
 public record ChampionSelectState(
-    ChampionData? MyChampion,
-    ChampionData[] BenchChampions
+    int? MyChampion,
+    int[] BenchChampions
 );
-

@@ -9,6 +9,7 @@ public sealed class LeagueClient : ILeagueClient
     private LcuClient? _client;
     private GamePhaseService? _gamePhaseService;
     private ChampionSelectService? _champSelectService;
+    private MasteryDataService? _masteryDataService;
 
     public bool IsConnected => _client != null;
 
@@ -27,6 +28,7 @@ public sealed class LeagueClient : ILeagueClient
         _client = new LcuClient(auth);
         _gamePhaseService = new GamePhaseService(_client);
         _champSelectService = new ChampionSelectService(_client);
+        _masteryDataService = new MasteryDataService(_client);
         return true;
     }
 
@@ -48,6 +50,7 @@ public sealed class LeagueClient : ILeagueClient
         _client = null;
         _gamePhaseService = null;
         _champSelectService = null;
+        _masteryDataService = null;
     }
 
     public Task<GamePhase> GetGamePhaseAsync()
@@ -64,6 +67,14 @@ public sealed class LeagueClient : ILeagueClient
             return Task.FromResult<ChampionSelectState?>(null);
 
         return _champSelectService.PollAsync();
+    }
+    
+    public Task<Dictionary<int, MasteryData>> GetMasteryDataAsync()
+    {
+        if (_masteryDataService == null)
+            return Task.FromResult<Dictionary<int, MasteryData>>(new());
+
+        return _masteryDataService.GetMasteryDataAsync();
     }
 
     public void Dispose() => Disconnect();
