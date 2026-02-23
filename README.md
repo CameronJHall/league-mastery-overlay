@@ -15,6 +15,10 @@
   <a href="#disclaimer">Disclaimer</a>
 </p>
 
+> **Note:** This app will download League of Legends mastery icons on the first run and store them in the app data folder.
+> This is to avoid bundling a large number of image assets with the app. The icons are sourced from the official
+> League of Legends data dragon repository.
+
 ## Why
 
 I want to try to hit master 5 on all champions in league, but most of the time I'm playing ARAM. 
