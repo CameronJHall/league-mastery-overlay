@@ -70,4 +70,16 @@ public sealed class OverlayLayout
     // Public properties for the renderer to use
     public Point PlayerChampionPos => _playerChampionPos;
     public Point[] BenchIconPositions => _benchIconPositions;
+
+    /// <summary>
+    /// Pixel dimensions of the player champion tile.
+    /// Update Anchors.PlayerTileSize to calibrate.
+    /// </summary>
+    public Size PlayerTileSize => new Size(Anchors.PlayerTileSize.W, Anchors.PlayerTileSize.H);
+
+    /// <summary>
+    /// Pixel dimensions of a bench champion tile.
+    /// Update Anchors.BenchTileSize to calibrate.
+    /// </summary>
+    public Size BenchTileSize => new Size(Anchors.BenchTileSize.W, Anchors.BenchTileSize.H);
 }

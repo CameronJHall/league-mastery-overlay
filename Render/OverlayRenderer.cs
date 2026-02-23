@@ -1,8 +1,8 @@
-using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using league_mastery_overlay.Layout;
 using league_mastery_overlay.State;
@@ -20,6 +20,14 @@ public sealed class OverlayRenderer
     private readonly StateStore _stateStore;
     private readonly OverlayLayout _layout;
     private readonly GridMapper? _gridMapper;
+
+    // Toggle to visualise raw anchor positions as crosses.
+    // Each cross marks the exact point passed to PlaceElement (top-left of the tile grid).
+    public bool ShowDebugCrosses { get; set; } = false;
+
+    // Controls which set of mastery crest PNGs is used.
+    // Toggled via the system tray context menu.
+    public MasteryIconSet ActiveIconSet { get; set; } = MasteryIconSet.Modern;
 
     public OverlayRenderer(Canvas root, StateStore stateStore, OverlayLayout layout, GridMapper? gridMapper = null)
     {
@@ -68,21 +76,22 @@ public sealed class OverlayRenderer
         // Re-render debug grid if active
         _gridMapper?.Render();
 
-        // Show debug info at the top
-        // var debugPanel = CreateDebugPanel(state);
-        // Canvas.SetLeft(debugPanel, 10);
-        // Canvas.SetTop(debugPanel, 10);
-        // Canvas.SetZIndex(debugPanel, 100);
-        // _root.Children.Add(debugPanel);
+        // Render crosses at raw anchor positions for calibration
+        if (ShowDebugCrosses)
+        {
+            PlaceCross(_layout.PlayerChampionPos, Brushes.Red);
+            foreach (var pos in _layout.BenchIconPositions)
+                PlaceCross(pos, Brushes.Cyan);
+        }
 
         // Render my pick at the anchor position
         if (state.ChampionSelect?.MyChampion != null)
         {
             var id = state.ChampionSelect.MyChampion.Value;
             state.ChampMasteryData.TryGetValue(id, out var mastery);
-            var icon = CreateMasteryIcon(mastery);
-            PlaceElement(icon, _layout.PlayerChampionPos);
-            _root.Children.Add(icon);
+            var overlay = CreateChampionOverlay(mastery, ChampionOverlayConfig.Player);
+            PlaceElement(overlay, _layout.PlayerChampionPos);
+            _root.Children.Add(overlay);
         }
 
         // Render bench champions at their grid positions
@@ -90,9 +99,9 @@ public sealed class OverlayRenderer
         for (int i = 0; i < benchIds.Length && i < _layout.BenchIconPositions.Length; i++)
         {
             state.ChampMasteryData.TryGetValue(benchIds[i], out var mastery);
-            var icon = CreateMasteryIcon(mastery);
-            PlaceElement(icon, _layout.BenchIconPositions[i]);
-            _root.Children.Add(icon);
+            var overlay = CreateChampionOverlay(mastery, ChampionOverlayConfig.Bench);
+            PlaceElement(overlay, _layout.BenchIconPositions[i]);
+            _root.Children.Add(overlay);
         }
     }
 
@@ -106,118 +115,153 @@ public sealed class OverlayRenderer
         Canvas.SetZIndex(element, 100);
     }
 
-    private Border CreateDebugPanel(LeagueState state)
+    /// <summary>
+    /// Renders a small cross centred on the given point for anchor calibration.
+    /// The cross is drawn as two lines intersecting at (position.X, position.Y).
+    /// </summary>
+    private void PlaceCross(Point position, Brush color, double size = 10)
     {
-        var benchCount = state.ChampionSelect?.BenchChampions?.Length ?? 0;
-        var hasSelection = state.ChampionSelect?.MyChampion != null;
+        const string tag = "DebugCross";
 
-        var text = new TextBlock
+        var horizontal = new Line
         {
-            Text = $"Phase: {state.Phase}\n" +
-                   $"Selected: {(hasSelection ? "Yes" : "No")}\n" +
-                   $"Bench Champions: {benchCount}",
-            Foreground = Brushes.Cyan,
-            FontSize = 14,
-            FontWeight = FontWeights.Bold,
-            Padding = new Thickness(8)
+            X1 = position.X - size / 2,
+            Y1 = position.Y,
+            X2 = position.X + size / 2,
+            Y2 = position.Y,
+            Stroke = color,
+            StrokeThickness = 1,
+            Tag = tag
         };
 
-        return new Border
+        var vertical = new Line
         {
-            Background = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0)),
-            CornerRadius = new CornerRadius(4),
-            Child = text
+            X1 = position.X,
+            Y1 = position.Y - size / 2,
+            X2 = position.X,
+            Y2 = position.Y + size / 2,
+            Stroke = color,
+            StrokeThickness = 1,
+            Tag = tag
         };
+
+        Canvas.SetZIndex(horizontal, 200);
+        Canvas.SetZIndex(vertical, 200);
+        _root.Children.Add(horizontal);
+        _root.Children.Add(vertical);
     }
 
     /// <summary>
-    /// Creates a small mastery icon for placement at anchor positions.
-    /// The icon is color-coded by mastery level, with a circular border showing progress.
+    /// Per-slot configuration sourced from Anchors. Passed into CreateChampionOverlay
+    /// so the player and bench tiles can be calibrated independently.
     /// </summary>
-    private Border CreateMasteryIcon(MasteryData? mastery)
+    private readonly record struct ChampionOverlayConfig(
+        Size TileSize,
+        double CrestSize,
+        (double Left, double Top, double Right, double Bottom) CrestOffset,
+        double ProgressBarHeight)
     {
-        const double iconSize = 20;
-        const double borderThickness = 2.0;
+        public static readonly ChampionOverlayConfig Player = new(
+            TileSize: new Size(Anchors.PlayerTileSize.W, Anchors.PlayerTileSize.H),
+            CrestSize: Anchors.PlayerMasteryCrestSize,
+            CrestOffset: Anchors.PlayerMasteryCrestOffset,
+            ProgressBarHeight: Anchors.PlayerProgressBarHeight);
 
-        int level = mastery?.Level ?? 0;
+        public static readonly ChampionOverlayConfig Bench = new(
+            TileSize: new Size(Anchors.BenchTileSize.W, Anchors.BenchTileSize.H),
+            CrestSize: Anchors.BenchMasteryCrestSize,
+            CrestOffset: Anchors.BenchMasteryCrestOffset,
+            ProgressBarHeight: Anchors.BenchProgressBarHeight);
+    }
+
+    /// <summary>
+    /// Creates a transparent overlay element sized to the champion tile.
+    /// The mastery crest PNG is pinned to the top-right corner of the tile,
+    /// and a progress bar is anchored to the bottom edge.
+    /// </summary>
+    private Grid CreateChampionOverlay(MasteryData? mastery, ChampionOverlayConfig config)
+    {
+        int level = Math.Clamp(mastery?.Level ?? 0, 0, 9);
         float progress = mastery?.MasteryProgress ?? 0f;
 
-        // Color code by mastery level
-        Brush backgroundColor = level switch
+        var tile = new Grid
         {
-            >= 5 => new SolidColorBrush(Color.FromArgb(180, 190, 200, 255)), // Gold
-            >= 1 => new SolidColorBrush(Color.FromArgb(180, 255, 215, 160)), // Bronze
-            _ => new SolidColorBrush(Color.FromArgb(144, 100, 100, 100))     // Gray - Not played
+            Width = config.TileSize.Width,
+            Height = config.TileSize.Height,
+            Background = Brushes.Transparent
         };
 
-        // Create a grid to layer the background circle and progress circle
-        var grid = new Grid
+        // --- Mastery crest (top-right corner) ---
+        var (crestLeft, crestTop, crestRight, crestBottom) = config.CrestOffset;
+        var crest = new Image
         {
-            Width = iconSize,
-            Height = iconSize
+            Width = config.CrestSize,
+            Height = config.CrestSize,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(crestLeft, crestTop, crestRight, crestBottom),
+            Source = LoadMasteryCrest(level, ActiveIconSet)
+        };
+        tile.Children.Add(crest);
+
+        // --- Progress bar (bottom edge) ---
+        // Outer track (dark background)
+        var barTrack = new Border
+        {
+            Height = config.ProgressBarHeight,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Background = new SolidColorBrush(Color.FromArgb(160, 20, 20, 20)),
+            CornerRadius = new CornerRadius(1)
+        };
+        tile.Children.Add(barTrack);
+
+        // Inner fill
+        var barFill = new Border
+        {
+            Height = config.ProgressBarHeight,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Width = config.TileSize.Width * progress,
+            Background = GetProgressBrush(),
+            CornerRadius = new CornerRadius(1)
+        };
+        tile.Children.Add(barFill);
+
+        return tile;
+    }
+
+    /// <summary>
+    /// Loads the mastery crest PNG for the given level from embedded resources.
+    /// Returns null if the resource cannot be found (WPF Image will render blank).
+    /// </summary>
+    private static BitmapImage? LoadMasteryCrest(int level, MasteryIconSet iconSet)
+    {
+        var uri = iconSet switch
+        {
+            MasteryIconSet.Legacy => new Uri(
+                $"pack://application:,,,/Resources/LegacyMasteryIcons/mastery-{Math.Clamp(level, 0, 7)}.png",
+                UriKind.Absolute),
+            _ => new Uri(
+                $"pack://application:,,,/Resources/MasteryIcons/crest-and-banner-mastery-{Math.Clamp(level, 0, 9)}.png",
+                UriKind.Absolute)
         };
 
-        // Background circle with text
-        var backgroundCircle = new Border
+        try
         {
-            Background = backgroundColor,
-            CornerRadius = new CornerRadius(iconSize / 2),
-            Child = new TextBlock
-            {
-                Text = $"{level}",
-                FontSize = 11,
-                FontWeight = FontWeights.Bold,
-                Foreground = Brushes.Black,
-                TextAlignment = TextAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            }
-        };
-        grid.Children.Add(backgroundCircle);
-
-        // Progress border - uses DashArray to create partial circle effect
-        var progressBorder = new Ellipse
+            return new BitmapImage(uri);
+        }
+        catch
         {
-            Width = iconSize,
-            Height = iconSize,
-            Stroke = GetProgressColor(progress),
-            StrokeThickness = borderThickness,
-            RenderTransformOrigin = new Point(0.5, 0.5), // Rotate around center
-            RenderTransform = new RotateTransform(-90) // Start from top, fill clockwise
-        };
-
-        // Calculate dash array to show progress as a partial circle
-        // Circumference = π * diameter
-        double circumference = System.Math.PI * iconSize / 2;
-        double filledLength = circumference * progress;
-        double gapLength = circumference - filledLength;
-
-        progressBorder.StrokeDashArray = new System.Windows.Media.DoubleCollection { filledLength, gapLength };
-        progressBorder.Effect = new System.Windows.Media.Effects.DropShadowEffect
-        {
-            Color = Colors.Black,
-            BlurRadius = 2,
-            ShadowDepth = 0,
-            Opacity = 0.9
-        };
-        
-        grid.Children.Add(progressBorder);
-
-        // Outer container that maintains size
-        var badge = new Border
-        {
-            Width = iconSize + (borderThickness * 2),
-            Height = iconSize + (borderThickness * 2),
-            Child = grid
-        };
-
-        return badge;
+            return null;
+        }
     }
     
-    private SolidColorBrush GetProgressColor(double progress)
+    private SolidColorBrush GetProgressBrush(double progress)
     {
         // Simple gradient from red (0%) to green (100%)
         var r = (byte)(255 * (1 - progress));
         var g = (byte)(255 * progress);
-        return new SolidColorBrush(Color.FromArgb(200, r, g, 100));
+        return new SolidColorBrush(Color.FromArgb(200, r, g, 120));
     }
 }
