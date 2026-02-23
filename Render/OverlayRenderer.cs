@@ -21,13 +21,28 @@ public sealed class OverlayRenderer
     private readonly OverlayLayout _layout;
     private readonly GridMapper? _gridMapper;
 
+    // Decoded BitmapImages keyed by (iconSet, level) so we only load each file once per session.
+    // A null value means the file wasn't cached on disk at last check; we retry next frame.
+    private readonly Dictionary<(MasteryIconSet, int), BitmapImage?> _imageCache = new();
+
     // Toggle to visualise raw anchor positions as crosses.
     // Each cross marks the exact point passed to PlaceElement (top-left of the tile grid).
     public bool ShowDebugCrosses { get; set; } = false;
 
     // Controls which set of mastery crest PNGs is used.
     // Toggled via the system tray context menu.
-    public MasteryIconSet ActiveIconSet { get; set; } = MasteryIconSet.Modern;
+    public MasteryIconSet ActiveIconSet
+    {
+        get => _activeIconSet;
+        set
+        {
+            if (_activeIconSet == value) return;
+            _activeIconSet = value;
+            // Clear cache so the new set is loaded on the next render.
+            _imageCache.Clear();
+        }
+    }
+    private MasteryIconSet _activeIconSet = MasteryIconSet.Modern;
 
     public OverlayRenderer(Canvas root, StateStore stateStore, OverlayLayout layout, GridMapper? gridMapper = null)
     {
@@ -232,11 +247,21 @@ public sealed class OverlayRenderer
     }
 
     /// <summary>
-    /// Loads the mastery crest PNG for the given level from the local icon cache.
-    /// Returns null if the file has not been downloaded yet — WPF Image renders blank.
+    /// Returns the decoded BitmapImage for the given level and icon set.
+    /// Hits an in-memory cache after the first load so disk is only read once per image per session.
+    /// Returns null if the file has not been downloaded yet — WPF Image renders blank, and we
+    /// retry on the next frame so icons appear as soon as the download completes.
     /// </summary>
-    private static BitmapImage? LoadMasteryCrest(int level, MasteryIconSet iconSet)
+    private BitmapImage? LoadMasteryCrest(int level, MasteryIconSet iconSet)
     {
+        var key = (iconSet, level);
+
+        // Return the cached result if we already have one (including a cached null).
+        // A cached null means the file wasn't on disk last time; re-check so we pick it up
+        // as soon as the background download finishes.
+        if (_imageCache.TryGetValue(key, out var cached) && cached != null)
+            return cached;
+
         var fileName = iconSet switch
         {
             MasteryIconSet.Legacy =>
@@ -257,6 +282,7 @@ public sealed class OverlayRenderer
             bmp.CacheOption = BitmapCacheOption.OnLoad;
             bmp.EndInit();
             bmp.Freeze();
+            _imageCache[key] = bmp;
             return bmp;
         }
         catch

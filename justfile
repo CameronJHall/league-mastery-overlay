@@ -1,5 +1,6 @@
 set windows-shell := ["cmd.exe", "/c"]
 
+AppData := env_var('APPDATA')
 icon_cache := AppData + "\\LeagueMasteryOverlay\\icons"
 settings_file := AppData + "\\LeagueMasteryOverlay\\settings.json"
 

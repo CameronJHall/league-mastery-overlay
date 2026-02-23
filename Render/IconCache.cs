@@ -9,7 +9,7 @@ namespace league_mastery_overlay.Render;
 /// %APPDATA%\LeagueMasteryOverlay\icons\.  Subsequent launches load from disk with no
 /// network traffic unless a file is missing.
 /// </summary>
-public sealed class IconCache
+public static class IconCache
 {
     // ── CDN base ─────────────────────────────────────────────────────────────
 
@@ -75,10 +75,10 @@ public sealed class IconCache
             var semaphore = new SemaphoreSlim(4);
             var tasks = missing.Select(async fileName =>
             {
-                await semaphore.WaitAsync();
+                await semaphore.WaitAsync().ConfigureAwait(false);
                 try
                 {
-                    await DownloadFileAsync(http, fileName);
+                    await DownloadFileAsync(http, fileName).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -86,7 +86,7 @@ public sealed class IconCache
                 }
             });
 
-            await Task.WhenAll(tasks);
+            await Task.WhenAll(tasks).ConfigureAwait(false);
             Debug.WriteLine("[IconCache] All icons downloaded.");
         }
         catch (Exception ex)
@@ -108,10 +108,10 @@ public sealed class IconCache
         var url = CdnBase + fileName;
         try
         {
-            var bytes = await http.GetByteArrayAsync(url);
+            var bytes = await http.GetByteArrayAsync(url).ConfigureAwait(false);
             // Write to a temp file first so a partial download never leaves a corrupt cache entry.
             var tmp = destPath + ".tmp";
-            await File.WriteAllBytesAsync(tmp, bytes);
+            await File.WriteAllBytesAsync(tmp, bytes).ConfigureAwait(false);
             File.Move(tmp, destPath, overwrite: true);
             Debug.WriteLine($"[IconCache] Cached {fileName}");
         }
