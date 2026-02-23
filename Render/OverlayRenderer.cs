@@ -232,14 +232,22 @@ public sealed class OverlayRenderer
         tile.Children.Add(barTrack);
 
         // Inner fill
+        var (brush, glowColor) = GetProgressBrush(progress);
         var barFill = new Border
         {
             Height = config.ProgressBarHeight,
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Bottom,
             Width = config.TileSize.Width * progress,
-            Background = GetProgressBrush(progress),
-            CornerRadius = new CornerRadius(1)
+            Background = brush,
+            CornerRadius = new CornerRadius(1),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = glowColor,
+                ShadowDepth = 0,
+                BlurRadius = 6,
+                Opacity = 0.8
+            }
         };
         tile.Children.Add(barFill);
 
@@ -290,12 +298,35 @@ public sealed class OverlayRenderer
             return null;
         }
     }
-    
-    private SolidColorBrush GetProgressBrush(double progress)
+
+/// <summary>
+/// Returns a LinearGradientBrush and glow color based on progress (0 to 1).
+/// Color transitions from red -> yellow -> green, with a light highlight on the right edge.
+/// </summary>
+    private static (LinearGradientBrush brush, Color glowColor) GetProgressBrush(double progress)
     {
-        // Simple gradient from red (0%) to green (100%)
-        var r = (byte)(255 * (1 - progress));
-        var g = (byte)(255 * progress);
-        return new SolidColorBrush(Color.FromArgb(200, r, g, 120));
+        byte r = progress < 0.5
+            ? (byte)255
+            : (byte)(255 * (1 - (progress - 0.5) * 2));
+        byte g = progress < 0.5
+            ? (byte)(255 * progress * 2)
+            : (byte)255;
+
+        var baseColor  = Color.FromArgb(160, r, g, 0);
+        var lightColor = Color.FromArgb(220, (byte)Math.Min(255, r + 80), (byte)Math.Min(255, g + 80), 80);
+
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0),
+            EndPoint   = new Point(1, 0),
+            GradientStops =
+            {
+                new GradientStop(baseColor,  0.0),
+                new GradientStop(baseColor,  0.6),
+                new GradientStop(lightColor, 1.0),
+            }
+        };
+
+        return (brush, baseColor);
     }
 }
