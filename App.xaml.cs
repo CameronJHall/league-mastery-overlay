@@ -68,6 +68,12 @@ public partial class App : Application
     
     #region Tray Menu Handlers
 
+    private void ToggleMasteryIconSet_Click(object sender, RoutedEventArgs e)
+    {
+        M?.ToggleMasteryIconSet();
+        Debug.WriteLine("[App] Mastery icon set toggled from tray menu");
+    }
+
     private void ToggleDebugGrid_Click(object sender, RoutedEventArgs e)
     {
         M?.ToggleDebugGrid();

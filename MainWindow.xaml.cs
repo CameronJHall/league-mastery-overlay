@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using league_mastery_overlay.Render;
+using league_mastery_overlay.Settings;
 using league_mastery_overlay.State;
 using league_mastery_overlay.Win32;
 using league_mastery_overlay.League;
@@ -18,6 +19,7 @@ public partial class MainWindow : Window
 {
     private readonly StateStore _stateStore = new();
     private readonly LeagueClient _league = new();
+    private readonly AppSettings _settings = AppSettings.Load();
     private OverlayRenderer? _renderer;
     private DispatcherTimer? _renderTimer;
     private WindowTracker? _windowTracker;
@@ -37,6 +39,17 @@ public partial class MainWindow : Window
         _gridMapper?.Toggle();
     }
 
+    public void ToggleMasteryIconSet()
+    {
+        if (_renderer == null) return;
+        _renderer.ActiveIconSet = _renderer.ActiveIconSet == Render.MasteryIconSet.Modern
+            ? Render.MasteryIconSet.Legacy
+            : Render.MasteryIconSet.Modern;
+        _settings.IconSet = _renderer.ActiveIconSet;
+        _settings.Save();
+        Debug.WriteLine($"[MainWindow] Mastery icon set changed to {_renderer.ActiveIconSet}");
+    }
+
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
@@ -50,7 +63,12 @@ public partial class MainWindow : Window
         Debug.WriteLine("[MainWindow] OnLoaded fired");
         _gridMapper = new GridMapper(RootCanvas);
         var layout = new OverlayLayout();
-        _renderer = new OverlayRenderer(RootCanvas, _stateStore, layout, _gridMapper);
+        _renderer = new OverlayRenderer(RootCanvas, _stateStore, layout, _gridMapper)
+        {
+            // Set to true to render crosses at raw anchor positions for calibration.
+            ShowDebugCrosses = false,
+            ActiveIconSet = _settings.IconSet
+        };
         _windowTracker = new WindowTracker(this);
 
         // Render timer - updates UI at ~30 FPS

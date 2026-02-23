@@ -11,6 +11,8 @@
                         Visibility="Visible">
             <tb:TaskbarIcon.ContextMenu>
                 <ContextMenu>
+                    <MenuItem Header="Toggle Mastery Icons (Modern / Legacy)"
+                              Click="ToggleMasteryIconSet_Click"/>
                     <MenuItem Header="Toggle Debug Grid" 
                               Click="ToggleDebugGrid_Click"/>
                     <Separator/>
