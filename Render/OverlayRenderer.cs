@@ -298,12 +298,13 @@ public sealed class OverlayRenderer
             return null;
         }
     }
-    
+
+/// <summary>
+/// Returns a LinearGradientBrush and glow color based on progress (0 to 1).
+/// Color transitions from red -> yellow -> green, with a light highlight on the right edge.
+/// </summary>
     private static (LinearGradientBrush brush, Color glowColor) GetProgressBrush(double progress)
     {
-        // Red (0%) → Yellow (50%) → Green (100%)
-        // First half:  R stays at 255, G ramps 0 → 255
-        // Second half: R ramps 255 → 0, G stays at 255
         byte r = progress < 0.5
             ? (byte)255
             : (byte)(255 * (1 - (progress - 0.5) * 2));
@@ -312,7 +313,6 @@ public sealed class OverlayRenderer
             : (byte)255;
 
         var baseColor  = Color.FromArgb(160, r, g, 0);
-        // Right-edge highlight: same hue but lighter, achieved by blending toward white.
         var lightColor = Color.FromArgb(220, (byte)Math.Min(255, r + 80), (byte)Math.Min(255, g + 80), 80);
 
         var brush = new LinearGradientBrush
