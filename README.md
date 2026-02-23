@@ -48,6 +48,12 @@ Using Copilot allowed for much faster development than I would have been able to
 
 ## Upcoming Features
 
+- Add stats and fun titles in the lobby overlay
+  - "grey screen enjoyer", most deaths
+  - "who wants a piece of the champ", longest win streak
+  - "all for you", most healing
+  - "tons of damage", most damage dealt
+  - etc.
 - Show an idle animation in client outside of champ select (pending layering solution)
 - Add a settings menu to configure which mastery levels to show, toggle animations, etc.
 
