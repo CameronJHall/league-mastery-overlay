@@ -181,7 +181,7 @@ public sealed class OverlayRenderer
     /// </summary>
     private Grid CreateChampionOverlay(MasteryData? mastery, ChampionOverlayConfig config)
     {
-        int level = Math.Clamp(mastery?.Level ?? 0, 0, 9);
+        int level = Math.Clamp(mastery?.Level ?? 0, 0, 10);
         float progress = mastery?.MasteryProgress ?? 0f;
 
         var tile = new Grid
@@ -223,7 +223,7 @@ public sealed class OverlayRenderer
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Bottom,
             Width = config.TileSize.Width * progress,
-            Background = GetProgressBrush(),
+            Background = GetProgressBrush(progress),
             CornerRadius = new CornerRadius(1)
         };
         tile.Children.Add(barFill);
@@ -232,24 +232,32 @@ public sealed class OverlayRenderer
     }
 
     /// <summary>
-    /// Loads the mastery crest PNG for the given level from embedded resources.
-    /// Returns null if the resource cannot be found (WPF Image will render blank).
+    /// Loads the mastery crest PNG for the given level from the local icon cache.
+    /// Returns null if the file has not been downloaded yet — WPF Image renders blank.
     /// </summary>
     private static BitmapImage? LoadMasteryCrest(int level, MasteryIconSet iconSet)
     {
-        var uri = iconSet switch
+        var fileName = iconSet switch
         {
-            MasteryIconSet.Legacy => new Uri(
-                $"pack://application:,,,/Resources/LegacyMasteryIcons/mastery-{Math.Clamp(level, 0, 7)}.png",
-                UriKind.Absolute),
-            _ => new Uri(
-                $"pack://application:,,,/Resources/MasteryIcons/crest-and-banner-mastery-{Math.Clamp(level, 0, 9)}.png",
-                UriKind.Absolute)
+            MasteryIconSet.Legacy =>
+                $"mastery-{Math.Clamp(level, 0, 7)}.png",
+            _ =>
+                $"crest-and-banner-mastery-{Math.Clamp(level, 0, 10)}.png"
         };
+
+        var path = IconCache.GetCachedPath(fileName);
+        if (path == null)
+            return null;
 
         try
         {
-            return new BitmapImage(uri);
+            var bmp = new BitmapImage();
+            bmp.BeginInit();
+            bmp.UriSource = new Uri(path, UriKind.Absolute);
+            bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.EndInit();
+            bmp.Freeze();
+            return bmp;
         }
         catch
         {

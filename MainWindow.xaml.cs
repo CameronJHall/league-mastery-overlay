@@ -84,6 +84,9 @@ public partial class MainWindow : Window
         };
         _renderTimer.Start();
 
+        // Kick off icon downloads in the background; renderer shows blank until they arrive.
+        _ = Render.IconCache.EnsureAllCachedAsync();
+
         // polls champion select data while in champion select
         _champSelectLoop = new PollingLoop(async () =>
         {
