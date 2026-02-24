@@ -72,14 +72,18 @@ public sealed class OverlayLayout
     public Point[] BenchIconPositions => _benchIconPositions;
 
     /// <summary>
-    /// Pixel dimensions of the player champion tile.
+    /// Pixel dimensions of the player champion tile, scaled to the current league window size.
     /// Update Anchors.PlayerTileSize to calibrate.
     /// </summary>
-    public Size PlayerTileSize => new Size(Anchors.PlayerTileSize.W, Anchors.PlayerTileSize.H);
+    public Size PlayerTileSize => new Size(
+        Anchors.PlayerTileSize.W * _leagueSize.Width,
+        Anchors.PlayerTileSize.H * _leagueSize.Height);
 
     /// <summary>
-    /// Pixel dimensions of a bench champion tile.
+    /// Pixel dimensions of a bench champion tile, scaled to the current league window size.
     /// Update Anchors.BenchTileSize to calibrate.
     /// </summary>
-    public Size BenchTileSize => new Size(Anchors.BenchTileSize.W, Anchors.BenchTileSize.H);
+    public Size BenchTileSize => new Size(
+        Anchors.BenchTileSize.W * _leagueSize.Width,
+        Anchors.BenchTileSize.H * _leagueSize.Height);
 }

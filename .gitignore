@@ -65,3 +65,6 @@ nunit-*.xml
 # Development
 example_*
 Screenshot*
+
+# (cmd.exe treats `nul` as a discard device; bash treats it as a literal filename)
+nul

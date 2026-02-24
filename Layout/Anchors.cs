@@ -8,8 +8,9 @@ public static class Anchors
     public static readonly (double X, double Y) PlayerChampion = (0.456, 0.7155); // 695/1278, 518/719
 
     // --- Bench champion tile ---
-    // Tile dimensions (pixels) overlaid on each bench portrait.
-    public static readonly (double W, double H) BenchTileSize = (48.0, 50.0);
+    // Tile dimensions (normalized 0..1) overlaid on each bench portrait.
+    // px: (48.0, 50.0) @ 1280x720
+    public static readonly (double W, double H) BenchTileSize = (0.0375, 0.06944);
 
     // Mastery crest badge size for bench tiles.
     public static readonly double BenchMasteryCrestSize = 24.0;
@@ -22,8 +23,9 @@ public static class Anchors
     public static readonly double BenchProgressBarHeight = 3.0;
 
     // --- Player champion tile ---
-    // Tile dimensions (pixels) overlaid on the player's champion portrait.
-    public static readonly (double W, double H) PlayerTileSize = (113.0, 65.0);
+    // Tile dimensions (normalized 0..1) overlaid on the player's champion portrait.
+    // px: (113.0, 65.0) @ 1280x720
+    public static readonly (double W, double H) PlayerTileSize = (0.08828, 0.09028);
 
     // Mastery crest badge size for the player tile.
     public static readonly double PlayerMasteryCrestSize = 24.0;
