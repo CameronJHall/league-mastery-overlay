@@ -104,7 +104,7 @@ public sealed class OverlayRenderer
         {
             var id = state.ChampionSelect.MyChampion.Value;
             state.ChampMasteryData.TryGetValue(id, out var mastery);
-            var overlay = CreateChampionOverlay(mastery, ChampionOverlayConfig.Player);
+            var overlay = CreateChampionOverlay(mastery, ChampionOverlayConfig.ForPlayer(_layout));
             PlaceElement(overlay, _layout.PlayerChampionPos);
             _root.Children.Add(overlay);
         }
@@ -114,7 +114,7 @@ public sealed class OverlayRenderer
         for (int i = 0; i < benchIds.Length && i < _layout.BenchIconPositions.Length; i++)
         {
             state.ChampMasteryData.TryGetValue(benchIds[i], out var mastery);
-            var overlay = CreateChampionOverlay(mastery, ChampionOverlayConfig.Bench);
+            var overlay = CreateChampionOverlay(mastery, ChampionOverlayConfig.ForBench(_layout));
             PlaceElement(overlay, _layout.BenchIconPositions[i]);
             _root.Children.Add(overlay);
         }
@@ -176,14 +176,14 @@ public sealed class OverlayRenderer
         (double Left, double Top, double Right, double Bottom) CrestOffset,
         double ProgressBarHeight)
     {
-        public static readonly ChampionOverlayConfig Player = new(
-            TileSize: new Size(Anchors.PlayerTileSize.W, Anchors.PlayerTileSize.H),
+        public static ChampionOverlayConfig ForPlayer(OverlayLayout layout) => new(
+            TileSize: layout.PlayerTileSize,
             CrestSize: Anchors.PlayerMasteryCrestSize,
             CrestOffset: Anchors.PlayerMasteryCrestOffset,
             ProgressBarHeight: Anchors.PlayerProgressBarHeight);
 
-        public static readonly ChampionOverlayConfig Bench = new(
-            TileSize: new Size(Anchors.BenchTileSize.W, Anchors.BenchTileSize.H),
+        public static ChampionOverlayConfig ForBench(OverlayLayout layout) => new(
+            TileSize: layout.BenchTileSize,
             CrestSize: Anchors.BenchMasteryCrestSize,
             CrestOffset: Anchors.BenchMasteryCrestOffset,
             ProgressBarHeight: Anchors.BenchProgressBarHeight);
