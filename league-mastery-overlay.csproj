@@ -21,6 +21,12 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Compile Remove="league-mastery-overlay.Tests\**" />
+        <EmbeddedResource Remove="league-mastery-overlay.Tests\**" />
+        <None Remove="league-mastery-overlay.Tests\**" />
+    </ItemGroup>
+
+    <ItemGroup>
         <Resource Include="Resources/icon.ico">
           <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Resource>

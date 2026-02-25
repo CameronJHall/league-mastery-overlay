@@ -20,6 +20,10 @@ build-release:
 run:
     dotnet run --configuration Debug
 
+# Run tests
+test:
+    dotnet test league-mastery-overlay.Tests/league-mastery-overlay.Tests.csproj
+
 # Clean build artifacts
 clean:
     dotnet clean

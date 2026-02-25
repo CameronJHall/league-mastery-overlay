@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private GridMapper? _gridMapper;
     private PollingLoop? _gamePhaseLoop;
     private PollingLoop? _champSelectLoop;
+    private PollingLoop? _lobbyLoop;
 
     public MainWindow()
     {
@@ -94,6 +95,34 @@ public partial class MainWindow : Window
             _stateStore.UpdateChampionSelectState(state);
         }, TimeSpan.FromMilliseconds(500));
 
+        // polls lobby membership while in the lobby — cheap, runs frequently
+        _lobbyLoop = new PollingLoop(async () =>
+        {
+            var lobbyState = await _league.GetLobbyStateAsync();
+            if (lobbyState == null)
+            {
+                _stateStore.UpdateLobbyState(null);
+                return;
+            }
+
+            // Fire off stats fetch for any puuid we haven't seen before — fully async, no awaiting
+            foreach (var friend in lobbyState.Friends)
+            {
+                if (_stateStore.HasPlayerStats(friend.Puuid))
+                    continue;
+
+                var puuid = friend.Puuid;
+                _ = Task.Run(async () =>
+                {
+                    var stats = await _league.GetPlayerStatsAsync(puuid);
+                    if (stats != null)
+                        _stateStore.UpdatePlayerStats(puuid, stats);
+                });
+            }
+
+            _stateStore.UpdateLobbyState(lobbyState);
+        }, TimeSpan.FromSeconds(2));
+
         // manages connection lifecycle and drives state machine transitions
         _gamePhaseLoop = new PollingLoop(async () =>
         {
@@ -103,10 +132,18 @@ public partial class MainWindow : Window
                 _league.Disconnect();
             }
 
+            bool wasConnected = _league.IsConnected;
             if (!_league.TryConnect())
             {
                 await TransitionTo(GamePhase.None);
                 return;
+            }
+
+            // First time we successfully connect this session — fetch friends list once
+            if (!wasConnected)
+            {
+                Debug.WriteLine("[MainWindow] New connection — fetching friends list");
+                await _league.FetchFriendsAsync();
             }
 
             var phase = await _league.GetGamePhaseAsync();
@@ -115,7 +152,6 @@ public partial class MainWindow : Window
                 Debug.WriteLine("[MainWindow] Detected game phase change: " + phase);
                 await TransitionTo(phase);
             }
-            
 
         }, TimeSpan.FromSeconds(2));
 
@@ -136,6 +172,10 @@ public partial class MainWindow : Window
         // OnExit current state
         switch (currentPhase)
         {
+            case GamePhase.Lobby:
+                _lobbyLoop?.Stop();
+                _stateStore.UpdateLobbyState(null);
+                break;
             case GamePhase.ChampSelect:
                 _champSelectLoop?.Stop();
                 _stateStore.UpdateChampionSelectState(null);
@@ -145,9 +185,16 @@ public partial class MainWindow : Window
         // OnEnter new state
         switch (newPhase)
         {
+            case GamePhase.Lobby:
+                _lobbyLoop?.Start();
+                break;
             case GamePhase.ChampSelect:
                 _stateStore.UpdateMasteryData(await _league.GetMasteryDataAsync());
                 _champSelectLoop?.Start();
+                break;
+            case GamePhase.InProgress:
+            case GamePhase.None: 
+                _stateStore.ClearPlayerStatsCache();
                 break;
         }
         
@@ -158,6 +205,7 @@ public partial class MainWindow : Window
     {
         _gamePhaseLoop?.Stop();
         _champSelectLoop?.Stop();
+        _lobbyLoop?.Stop();
         _league.Dispose();
 
         var trayIcon = TryFindResource("TrayIcon") as Hardcodet.Wpf.TaskbarNotification.TaskbarIcon;
