@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using league_mastery_overlay.Eval;
 using league_mastery_overlay.Layout;
 using league_mastery_overlay.State;
 using league_mastery_overlay.Util;
@@ -68,8 +69,8 @@ public sealed class OverlayRenderer
     {
         LeagueState state = _stateStore.Get();
 
-        // Hide overlay if not in champ select
-        if (state.Phase != GamePhase.ChampSelect)
+        // Hide overlay if not in a phase we render
+        if (state.Phase != GamePhase.ChampSelect && state.Phase != GamePhase.Lobby)
         {
             _root.Visibility = Visibility.Collapsed;
             return;
@@ -90,6 +91,14 @@ public sealed class OverlayRenderer
 
         // Re-render debug grid if active
         _gridMapper?.Render();
+
+        if (state.Phase == GamePhase.Lobby)
+        {
+            RenderLobby(state);
+            return;
+        }
+
+        // ── ChampSelect render ────────────────────────────────────────────────
 
         // Render crosses at raw anchor positions for calibration
         if (ShowDebugCrosses)
@@ -118,6 +127,117 @@ public sealed class OverlayRenderer
             PlaceElement(overlay, _layout.BenchIconPositions[i]);
             _root.Children.Add(overlay);
         }
+    }
+
+    /// <summary>
+    /// Renders a simple player-card list for the lobby phase.
+    /// Cards are stacked vertically in the top-left of the overlay.
+    /// </summary>
+    private void RenderLobby(LeagueState state)
+    {
+        var lobby = state.Lobby;
+        if (lobby == null || lobby.Friends.Count == 0)
+            return;
+
+        // Snapshot the stats cache once per frame — avoids holding the lock across rendering
+        var statsSnapshot = _stateStore.GetPlayerStatsSnapshot();
+
+        // Evaluate titles from whatever stats are available right now
+        var friendsWithStats = lobby.Friends
+            .Select(f => (Friend: f, Stats: statsSnapshot.GetValueOrDefault(f.Puuid)))
+            .ToList();
+        var titles = TitleEvaluator.Evaluate(friendsWithStats);
+
+        const double cardWidth   = 320;
+        const double cardHeight  = 52;
+        const double cardPadding = 6;
+        const double startX      = 20;
+        const double startY      = 20;
+
+        for (int i = 0; i < lobby.Friends.Count; i++)
+        {
+            var friend = lobby.Friends[i];
+            var stats  = statsSnapshot.GetValueOrDefault(friend.Puuid);
+            var title  = titles.GetValueOrDefault(friend.Puuid);
+
+            double y = startY + i * (cardHeight + cardPadding);
+            var card = CreateLobbyCard(friend, stats, title, cardWidth, cardHeight);
+            Canvas.SetLeft(card, startX);
+            Canvas.SetTop(card, y);
+            Canvas.SetZIndex(card, 100);
+            _root.Children.Add(card);
+        }
+    }
+
+    /// <summary>
+    /// Creates a single lobby player card showing name, tag, title, and basic stats.
+    /// </summary>
+    private static Border CreateLobbyCard(State.LobbyFriend friend, State.PlayerStats? stats, string? title, double width, double height)
+    {
+        var nameText = friend.GameName;
+        if (!string.IsNullOrEmpty(friend.GameTag))
+            nameText += $" #{friend.GameTag}";
+        if (friend.IsLeader)
+            nameText += " (Host)";
+
+        var nameBlock = new System.Windows.Controls.TextBlock
+        {
+            Text       = nameText,
+            Foreground = Brushes.White,
+            FontSize   = 13,
+            FontWeight = FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+
+        var titleBlock = new System.Windows.Controls.TextBlock
+        {
+            Text       = title ?? (stats == null ? "Loading..." : ""),
+            Foreground = title != null
+                ? new SolidColorBrush(Color.FromArgb(255, 255, 215, 0))    // gold
+                : new SolidColorBrush(Color.FromArgb(160, 200, 200, 200)), // dim grey
+            FontSize   = 11,
+            FontStyle  = title != null ? FontStyles.Normal : FontStyles.Italic,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+
+        var stack = new System.Windows.Controls.StackPanel
+        {
+            Orientation = System.Windows.Controls.Orientation.Vertical,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(10, 0, 10, 0)
+        };
+        stack.Children.Add(nameBlock);
+        stack.Children.Add(titleBlock);
+
+        // Stats line (shown once loaded)
+        if (stats != null)
+        {
+            string statsStr = $"Avg DMG {stats.AvgDamage:N0}  |  Avg Heal {stats.AvgHealing:N0}";
+            if (stats.WinStreak > 0)
+                statsStr = $"W{stats.WinStreak} streak  |  " + statsStr;
+            else if (stats.LossStreak > 0)
+                statsStr = $"L{stats.LossStreak} streak  |  " + statsStr;
+
+            var statsBlock = new System.Windows.Controls.TextBlock
+            {
+                Text       = statsStr,
+                Foreground = new SolidColorBrush(Color.FromArgb(180, 180, 210, 255)),
+                FontSize   = 10,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            stack.Children.Add(statsBlock);
+        }
+
+        return new Border
+        {
+            Width             = width,
+            Height            = height,
+            Background        = new SolidColorBrush(Color.FromArgb(180, 10, 10, 30)),
+            BorderBrush       = new SolidColorBrush(Color.FromArgb(120, 100, 140, 255)),
+            BorderThickness   = new Thickness(1),
+            CornerRadius      = new CornerRadius(4),
+            Child             = stack
+        };
     }
 
     /// <summary>
