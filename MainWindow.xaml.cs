@@ -9,6 +9,9 @@ using league_mastery_overlay.League;
 using league_mastery_overlay.Util;
 using league_mastery_overlay.Layout;
 using System.Diagnostics;
+#if DEBUG
+using league_mastery_overlay.DebugTools;
+#endif
 
 namespace league_mastery_overlay;
 
@@ -21,12 +24,16 @@ public partial class MainWindow : Window
     private readonly LeagueClient _league = new();
     private readonly AppSettings _settings = AppSettings.Load();
     private OverlayRenderer? _renderer;
+    private OverlayLayout? _layout;
     private DispatcherTimer? _renderTimer;
     private WindowTracker? _windowTracker;
     private GridMapper? _gridMapper;
     private PollingLoop? _gamePhaseLoop;
     private PollingLoop? _champSelectLoop;
     private PollingLoop? _lobbyLoop;
+#if DEBUG
+    private AnchorTunerWindow? _anchorTuner;
+#endif
 
     public MainWindow()
     {
@@ -42,9 +49,21 @@ public partial class MainWindow : Window
 
     public void ToggleDebugPanel()
     {
-        if (_renderer == null) return;
-        _renderer.ShowDebugPanel = !_renderer.ShowDebugPanel;
-        Debug.WriteLine($"[MainWindow] Debug panel {(_renderer.ShowDebugPanel ? "enabled" : "disabled")}");
+#if DEBUG
+        if (_layout == null || _renderer == null) return;
+        if (_anchorTuner == null || !_anchorTuner.IsVisible)
+        {
+            _anchorTuner = new AnchorTunerWindow(_layout, _renderer);
+            _anchorTuner.Show();
+            Debug.WriteLine("[MainWindow] AnchorTunerWindow opened");
+        }
+        else
+        {
+            _anchorTuner.Close();
+            _anchorTuner = null;
+            Debug.WriteLine("[MainWindow] AnchorTunerWindow closed");
+        }
+#endif
     }
 
     public void ToggleMasteryIconSet()
@@ -70,8 +89,8 @@ public partial class MainWindow : Window
     {
         Debug.WriteLine("[MainWindow] OnLoaded fired");
         _gridMapper = new GridMapper(RootCanvas);
-        var layout = new OverlayLayout();
-        _renderer = new OverlayRenderer(RootCanvas, _stateStore, layout, _gridMapper)
+        _layout = new OverlayLayout();
+        _renderer = new OverlayRenderer(RootCanvas, _stateStore, _layout, _gridMapper)
         {
             // Set to true to render crosses at raw anchor positions for calibration.
             ShowDebugCrosses = false,
@@ -86,9 +105,11 @@ public partial class MainWindow : Window
         };
         _renderTimer.Tick += (_, _) =>
         {
+            _windowTracker.ForceVisible = _renderer.ForceRender;
             _windowTracker.UpdatePosition();
             _renderer.UpdateWindowSize(new Size(RootCanvas.ActualWidth, RootCanvas.ActualHeight));
-            _renderer.Render(_windowTracker.IsLeagueForegrounded, _windowTracker.LastDebug);
+            _renderer.Render(_windowTracker.IsLeagueForegrounded || _renderer.ForceRender,
+                             _windowTracker.LastDebug);
         };
         _renderTimer.Start();
 

@@ -31,6 +31,13 @@ public sealed class WindowTracker
     /// </summary>
     public bool IsLeagueForegrounded { get; private set; }
 
+    /// <summary>
+    /// When true, <see cref="UpdatePosition"/> skips parking the overlay off-screen
+    /// so it remains visible even when League is not foregrounded.
+    /// Set by the debug tuner's Force Render toggle.
+    /// </summary>
+    public bool ForceVisible { get; set; }
+
     public WindowTracker(Window overlayWindow)
     {
         _overlayWindow = overlayWindow;
@@ -48,7 +55,7 @@ public sealed class WindowTracker
             {
                 Debug.WriteLine("[WindowTracker] LeagueClientUx not found");
                 IsLeagueForegrounded = false;
-                ParkOffScreen();
+                if (!ForceVisible) ParkOffScreen();
                 LastDebug = new DebugSnapshot("n/a", 0, 0, false, "Hidden – no League process");
                 return;
             }
@@ -79,9 +86,25 @@ public sealed class WindowTracker
         if (!pidMatch)
         {
             IsLeagueForegrounded = false;
-            ParkOffScreen();
+            if (!ForceVisible)
+            {
+                ParkOffScreen();
+                LastDebug = new DebugSnapshot(foregroundTitle, foregroundPid, leaguePid, false,
+                    "Hidden – foreground is not League");
+                return;
+            }
+
+            // ForceVisible: snap to the League window even though it isn't foregrounded.
+            IntPtr leagueHwnd = _targetProcess.MainWindowHandle;
+            if (leagueHwnd != IntPtr.Zero && GetWindowRect(leagueHwnd, out RECT forceRect))
+            {
+                _overlayWindow.Left   = forceRect.Left;
+                _overlayWindow.Top    = forceRect.Top;
+                _overlayWindow.Width  = forceRect.Right  - forceRect.Left;
+                _overlayWindow.Height = forceRect.Bottom - forceRect.Top;
+            }
             LastDebug = new DebugSnapshot(foregroundTitle, foregroundPid, leaguePid, false,
-                "Hidden – foreground is not League");
+                "Force-visible – foreground is not League");
             return;
         }
 
@@ -92,7 +115,7 @@ public sealed class WindowTracker
         {
             Debug.WriteLine("[WindowTracker] Failed to get window rect");
             IsLeagueForegrounded = false;
-            ParkOffScreen();
+            if (!ForceVisible) ParkOffScreen();
             LastDebug = new DebugSnapshot(foregroundTitle, foregroundPid, leaguePid, true,
                 "Hidden – GetWindowRect failed");
             return;
