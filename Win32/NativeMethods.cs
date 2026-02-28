@@ -22,8 +22,12 @@ internal static class NativeMethods
         );
     }
 
-    #region Win32
+    /// <summary>
+    /// Returns the HWND of the window that currently has keyboard focus.
+    /// </summary>
+    public static IntPtr GetForegroundWindow() => _GetForegroundWindow();
 
+    #region Win32
     private const int GWL_EXSTYLE = -20;
     private const int WS_EX_LAYERED = 0x80000;
     private const int WS_EX_TRANSPARENT = 0x20;
@@ -46,6 +50,9 @@ internal static class NativeMethods
     private static extern bool SetProcessDpiAwarenessContext(
         IntPtr value
     );
+
+    [DllImport("user32.dll", EntryPoint = "GetForegroundWindow")]
+    private static extern IntPtr _GetForegroundWindow();
 
     #endregion
 }

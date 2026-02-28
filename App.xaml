@@ -13,8 +13,14 @@
                 <ContextMenu>
                     <MenuItem Header="Toggle Mastery Icons (Modern / Legacy)"
                               Click="ToggleMasteryIconSet_Click"/>
-                    <MenuItem Header="Toggle Debug Grid" 
-                              Click="ToggleDebugGrid_Click"/>
+                    <MenuItem Header="Debug">
+                        <MenuItem Header="Debug Grid"
+                                  IsCheckable="True"
+                                  Click="ToggleDebugGrid_Click"/>
+                        <MenuItem Header="Debug Panel"
+                                  IsCheckable="True"
+                                  Click="ToggleDebugPanel_Click"/>
+                    </MenuItem>
                     <Separator/>
                     <MenuItem Header="About" 
                               Click="About_Click"/>
@@ -25,3 +31,4 @@
         </tb:TaskbarIcon>
     </Application.Resources>
 </Application>
+
