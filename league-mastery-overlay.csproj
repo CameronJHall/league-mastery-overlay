@@ -26,12 +26,12 @@
         <None Remove="league-mastery-overlay.Tests\**" />
     </ItemGroup>
 
-    <!-- Exclude the Debug/ tuner from Release builds so it ships zero debug UI -->
+    <!-- Exclude the DevTools/ tuner from Release builds so it ships zero debug UI -->
     <ItemGroup Condition="'$(Configuration)' == 'Release'">
-        <Compile Remove="Debug\**" />
-        <Page Remove="Debug\**" />
-        <EmbeddedResource Remove="Debug\**" />
-        <None Remove="Debug\**" />
+        <Compile Remove="DevTools\**" />
+        <Page Remove="DevTools\**" />
+        <EmbeddedResource Remove="DevTools\**" />
+        <None Remove="DevTools\**" />
     </ItemGroup>
 
 
