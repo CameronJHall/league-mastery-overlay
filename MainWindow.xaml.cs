@@ -40,6 +40,13 @@ public partial class MainWindow : Window
         _gridMapper?.Toggle();
     }
 
+    public void ToggleDebugPanel()
+    {
+        if (_renderer == null) return;
+        _renderer.ShowDebugPanel = !_renderer.ShowDebugPanel;
+        Debug.WriteLine($"[MainWindow] Debug panel {(_renderer.ShowDebugPanel ? "enabled" : "disabled")}");
+    }
+
     public void ToggleMasteryIconSet()
     {
         if (_renderer == null) return;
@@ -79,9 +86,9 @@ public partial class MainWindow : Window
         };
         _renderTimer.Tick += (_, _) =>
         {
-            _renderer.UpdateWindowSize(new Size(RootCanvas.ActualWidth, RootCanvas.ActualHeight));
-            _renderer.Render();
             _windowTracker.UpdatePosition();
+            _renderer.UpdateWindowSize(new Size(RootCanvas.ActualWidth, RootCanvas.ActualHeight));
+            _renderer.Render(_windowTracker.IsLeagueForegrounded, _windowTracker.LastDebug);
         };
         _renderTimer.Start();
 

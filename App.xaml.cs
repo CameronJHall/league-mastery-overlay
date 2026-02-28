@@ -77,7 +77,13 @@ public partial class App : Application
     private void ToggleDebugGrid_Click(object sender, RoutedEventArgs e)
     {
         M?.ToggleDebugGrid();
-        Debug.WriteLine("[MainWindow] Debug grid toggled from tray menu");
+        Debug.WriteLine("[App] Debug grid toggled from tray menu");
+    }
+
+    private void ToggleDebugPanel_Click(object sender, RoutedEventArgs e)
+    {
+        M?.ToggleDebugPanel();
+        Debug.WriteLine("[App] Debug panel toggled from tray menu");
     }
 
     private void About_Click(object sender, RoutedEventArgs e)

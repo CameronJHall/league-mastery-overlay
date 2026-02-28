@@ -8,6 +8,7 @@ using league_mastery_overlay.Eval;
 using league_mastery_overlay.Layout;
 using league_mastery_overlay.State;
 using league_mastery_overlay.Util;
+using static league_mastery_overlay.Util.WindowTracker;
 
 namespace league_mastery_overlay.Render;
 
@@ -29,6 +30,9 @@ public sealed class OverlayRenderer
     // Toggle to visualise raw anchor positions as crosses.
     // Each cross marks the exact point passed to PlaceElement (top-left of the tile grid).
     public bool ShowDebugCrosses { get; set; } = false;
+
+    // Toggle to show the z-order / foreground-window debug panel.
+    public bool ShowDebugPanel { get; set; } = false;
 
     // Controls which set of mastery crest PNGs is used.
     // Toggled via the system tray context menu.
@@ -65,18 +69,9 @@ public sealed class OverlayRenderer
     /// <summary>
     /// Main render loop - place icons at their calculated positions.
     /// </summary>
-    public void Render()
+    public void Render(bool isLeagueForegrounded, DebugSnapshot? debug = null)
     {
         LeagueState state = _stateStore.Get();
-
-        // Hide overlay if not in a phase we render
-        if (state.Phase != GamePhase.ChampSelect && state.Phase != GamePhase.Lobby)
-        {
-            _root.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        _root.Visibility = Visibility.Visible;
 
         // Clear previous render (but preserve debug grid elements)
         var toRemove = _root.Children
@@ -87,6 +82,23 @@ public sealed class OverlayRenderer
         foreach (var element in toRemove)
         {
             _root.Children.Remove(element);
+        }
+
+        // Render debug panel if enabled — always shown regardless of foreground state
+        // so it's visible even when diagnosing why the overlay is hidden
+        if (ShowDebugPanel && debug != null)
+            RenderDebugPanel(debug);
+
+        // Collapse all game content when League is not the foreground window.
+        // We hide content rather than the Window itself to avoid the repaint
+        // flicker that Window.Visibility changes cause.
+        if (!isLeagueForegrounded)
+            return;
+
+        // Hide overlay content if not in a phase we render
+        if (state.Phase != GamePhase.ChampSelect && state.Phase != GamePhase.Lobby)
+        {
+            return;
         }
 
         // Re-render debug grid if active
@@ -127,6 +139,75 @@ public sealed class OverlayRenderer
             PlaceElement(overlay, _layout.BenchIconPositions[i]);
             _root.Children.Add(overlay);
         }
+    }
+
+    /// <summary>
+    /// Renders a semi-transparent debug panel in the bottom-left of the overlay
+    /// showing foreground-window PID tracking state so z-order/visibility issues
+    /// can be diagnosed at runtime.
+    /// </summary>
+    private void RenderDebugPanel(DebugSnapshot debug)
+    {
+        string pidMatchStr = debug.PidMatch ? "MATCH" : "NO MATCH";
+        string pidMatchColor = debug.PidMatch ? "#FF00FF66" : "#FFFF4444";
+
+        var lines = new[]
+        {
+            ("Foreground", $"\"{debug.ForegroundTitle}\""),
+            ("FG PID",     $"{debug.ForegroundPid}"),
+            ("League PID", $"{debug.LeaguePid}"),
+            ("PID match",  pidMatchStr),
+            ("Overlay",    debug.OverlayVisibility),
+        };
+
+        var stack = new StackPanel
+        {
+            Orientation = Orientation.Vertical,
+            Margin      = new Thickness(6, 4, 6, 4),
+        };
+
+        foreach (var (label, value) in lines)
+        {
+            bool isPidMatch = label == "PID match";
+            var row = new StackPanel { Orientation = Orientation.Horizontal };
+            row.Children.Add(new TextBlock
+            {
+                Text       = label + ": ",
+                Foreground = new SolidColorBrush(Color.FromArgb(180, 180, 180, 180)),
+                FontSize   = 10,
+                FontFamily = new FontFamily("Consolas"),
+            });
+            row.Children.Add(new TextBlock
+            {
+                Text       = value,
+                Foreground = isPidMatch
+                    ? (SolidColorBrush)new BrushConverter().ConvertFromString(pidMatchColor)!
+                    : new SolidColorBrush(Colors.White),
+                FontSize   = 10,
+                FontFamily = new FontFamily("Consolas"),
+                FontWeight = isPidMatch ? FontWeights.Bold : FontWeights.Normal,
+            });
+            stack.Children.Add(row);
+        }
+
+        var panel = new Border
+        {
+            Background      = new SolidColorBrush(Color.FromArgb(200, 10, 10, 30)),
+            BorderBrush     = new SolidColorBrush(Color.FromArgb(120, 80, 80, 200)),
+            BorderThickness = new Thickness(1),
+            CornerRadius    = new CornerRadius(4),
+            Child           = stack,
+            Tag             = "DebugPanel",
+        };
+
+        // Measure so we can position at the bottom-left
+        panel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double panelH = panel.DesiredSize.Height > 0 ? panel.DesiredSize.Height : 90;
+
+        Canvas.SetLeft(panel, 10);
+        Canvas.SetTop(panel, _root.ActualHeight > 0 ? _root.ActualHeight - panelH - 10 : 400);
+        Canvas.SetZIndex(panel, 500);
+        _root.Children.Add(panel);
     }
 
     /// <summary>
