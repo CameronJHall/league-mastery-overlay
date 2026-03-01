@@ -1,0 +1,170 @@
+<Window x:Class="league_mastery_overlay.DebugTools.AnchorTunerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Anchor Tuner"
+        Width="460" SizeToContent="Height"
+        ResizeMode="CanResize"
+        WindowStartupLocation="Manual"
+        Topmost="True"
+        Background="#FF1A1A2E"
+        Foreground="White"
+        FontFamily="Consolas"
+        FontSize="12"
+        Closing="OnClosing">
+
+    <Window.Resources>
+        <!-- Dark text box -->
+        <Style x:Key="NumBox" TargetType="TextBox">
+            <Setter Property="Background"   Value="#FF0D0D1A"/>
+            <Setter Property="Foreground"   Value="#FFE0E0FF"/>
+            <Setter Property="BorderBrush"  Value="#FF444477"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding"      Value="3,1"/>
+            <Setter Property="Width"        Value="72"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Spinner arrow button -->
+        <Style x:Key="SpinBtn" TargetType="RepeatButton">
+            <Setter Property="Background"     Value="#FF222244"/>
+            <Setter Property="Foreground"     Value="#FFB0B0FF"/>
+            <Setter Property="BorderBrush"    Value="#FF444477"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Width"  Value="18"/>
+            <Setter Property="Height" Value="14"/>
+            <Setter Property="FontSize" Value="9"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Delay"     Value="400"/>
+            <Setter Property="Interval"  Value="80"/>
+        </Style>
+
+        <!-- Section header -->
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="Foreground"  Value="#FF8888CC"/>
+            <Setter Property="FontWeight"  Value="SemiBold"/>
+            <Setter Property="FontSize"    Value="11"/>
+            <Setter Property="Margin"      Value="0,10,0,4"/>
+        </Style>
+
+        <!-- Row label -->
+        <Style x:Key="RowLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#FFAAAACC"/>
+            <Setter Property="Width"      Value="180"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="12">
+
+        <!-- Title bar area -->
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <TextBlock Text="Anchor Tuner"
+                       FontSize="14" FontWeight="Bold"
+                       Foreground="#FFCCCCFF"/>
+            <TextBlock Text="Edits apply live. Values are normalized (0–1) unless noted as px."
+                       FontSize="10" Foreground="#FF888899"
+                       TextWrapping="Wrap" Margin="0,2,0,0"/>
+        </StackPanel>
+
+        <!-- Bottom bar: force-render toggle on left, action buttons on right -->
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="False">
+            <ToggleButton x:Name="ForceRenderToggle"
+                          DockPanel.Dock="Left"
+                          VerticalAlignment="Center"
+                          Padding="8,3"
+                          Checked="ForceRender_Changed"
+                          Unchecked="ForceRender_Changed"
+                          Background="#FF222244"
+                          Foreground="#FFB0B0FF"
+                          BorderBrush="#FF444477"
+                          BorderThickness="1">
+                <ToggleButton.Style>
+                    <Style TargetType="ToggleButton">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="Bd"
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            Padding="{TemplateBinding Padding}"
+                                            CornerRadius="2">
+                                        <ContentPresenter HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#FF334488"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#FF8888FF"/>
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#FFCCCCFF"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ToggleButton.Style>
+                <TextBlock x:Name="ForceRenderLabel"
+                           Text="Force render: OFF"
+                           Foreground="#FFB0B0FF"
+                           FontFamily="Consolas" FontSize="12"/>
+            </ToggleButton>
+            <Button x:Name="ResetButton"
+                    DockPanel.Dock="Right"
+                    Content="Reset to defaults"
+                    Click="ResetToDefaults_Click"
+                    Padding="10,4"
+                    Background="#FF221122"
+                    Foreground="#FFFF9999"
+                    BorderBrush="#FF664444"
+                    BorderThickness="1"/>
+            <Button x:Name="CopyButton"
+                    DockPanel.Dock="Right"
+                    Content="Copy values to clipboard"
+                    Click="CopyToClipboard_Click"
+                    Margin="0,0,8,0"
+                    Padding="10,4"
+                    Background="#FF222244"
+                    Foreground="#FFB0B0FF"
+                    BorderBrush="#FF444477"
+                    BorderThickness="1"/>
+        </DockPanel>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="RowsPanel">
+
+                <!-- ═══ CHAMP SELECT ═══════════════════════════════════════════ -->
+                <TextBlock Text="── Champ Select" Style="{StaticResource SectionHeader}"/>
+
+                <!-- BenchBase X -->
+                <StackPanel x:Name="Row_BenchBase_X"    Orientation="Horizontal" Margin="0,2"/>
+                <!-- BenchBase Y -->
+                <StackPanel x:Name="Row_BenchBase_Y"    Orientation="Horizontal" Margin="0,2"/>
+                <!-- BenchXSpacing -->
+                <StackPanel x:Name="Row_BenchXSpacing"  Orientation="Horizontal" Margin="0,2"/>
+                <!-- PlayerChampion X -->
+                <StackPanel x:Name="Row_PlayerChamp_X"  Orientation="Horizontal" Margin="0,2"/>
+                <!-- PlayerChampion Y -->
+                <StackPanel x:Name="Row_PlayerChamp_Y"  Orientation="Horizontal" Margin="0,2"/>
+
+                <!-- ═══ LOBBY ════════════════════════════════════════════════ -->
+                <TextBlock Text="── Lobby" Style="{StaticResource SectionHeader}"/>
+
+                <!-- LobbyCardFirst X -->
+                <StackPanel x:Name="Row_LobbyCard_X"       Orientation="Horizontal" Margin="0,2"/>
+                <!-- LobbyCardFirst Y -->
+                <StackPanel x:Name="Row_LobbyCard_Y"       Orientation="Horizontal" Margin="0,2"/>
+                <!-- LobbyCardXSpacing -->
+                <StackPanel x:Name="Row_LobbyCardSpacing"  Orientation="Horizontal" Margin="0,2"/>
+                <!-- LobbyCardSize W -->
+                <StackPanel x:Name="Row_LobbyCardSize_W"   Orientation="Horizontal" Margin="0,2"/>
+                <!-- LobbyCardSize H -->
+                <StackPanel x:Name="Row_LobbyCardSize_H"   Orientation="Horizontal" Margin="0,2"/>
+
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

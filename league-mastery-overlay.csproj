@@ -26,6 +26,15 @@
         <None Remove="league-mastery-overlay.Tests\**" />
     </ItemGroup>
 
+    <!-- Exclude the DevTools/ tuner from Release builds so it ships zero debug UI -->
+    <ItemGroup Condition="'$(Configuration)' == 'Release'">
+        <Compile Remove="DevTools\**" />
+        <Page Remove="DevTools\**" />
+        <EmbeddedResource Remove="DevTools\**" />
+        <None Remove="DevTools\**" />
+    </ItemGroup>
+
+
     <ItemGroup>
         <Resource Include="Resources/icon.ico">
           <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

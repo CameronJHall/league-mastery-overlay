@@ -35,5 +35,20 @@ public static class Anchors
 
     // Progress bar height for the player tile.
     public static readonly double PlayerProgressBarHeight = 3.0;
-}
 
+    // --- Lobby player cards ---
+    // Normalized (0..1) top-left origin of the first player card slot.
+    // TODO: calibrate against the actual League client lobby layout.
+    public static readonly (double X, double Y) LobbyCardFirst = (0.034, 0.254);
+
+    // Horizontal spacing between successive player card slots (normalized 0..1).
+    public static readonly double LobbyCardXSpacing = 0.1531;
+
+    // Number of player card slots (max 5 in a standard lobby).
+    public const int LobbyCardSlots = 5;
+
+    // Lobby card tile dimensions (normalized 0..1).
+    // Cards are sized to fit within each slot without overlapping the next.
+    // px: ~190 wide × 70 tall @ 1280x720
+    public static readonly (double W, double H) LobbyCardSize = (0.1454, 0.08922);
+}

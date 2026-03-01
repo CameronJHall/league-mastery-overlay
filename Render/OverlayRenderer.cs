@@ -34,6 +34,10 @@ public sealed class OverlayRenderer
     // Toggle to show the z-order / foreground-window debug panel.
     public bool ShowDebugPanel { get; set; } = false;
 
+    // When true, renders overlay content even when League is not the foreground window.
+    // Intended for debug/calibration use only.
+    public bool ForceRender { get; set; } = false;
+
     // Controls which set of mastery crest PNGs is used.
     // Toggled via the system tray context menu.
     public MasteryIconSet ActiveIconSet
@@ -92,7 +96,7 @@ public sealed class OverlayRenderer
         // Collapse all game content when League is not the foreground window.
         // We hide content rather than the Window itself to avoid the repaint
         // flicker that Window.Visibility changes cause.
-        if (!isLeagueForegrounded)
+        if (!isLeagueForegrounded && !ForceRender)
             return;
 
         // Hide overlay content if not in a phase we render
@@ -211,11 +215,17 @@ public sealed class OverlayRenderer
     }
 
     /// <summary>
-    /// Renders a simple player-card list for the lobby phase.
-    /// Cards are stacked vertically in the top-left of the overlay.
+    /// Renders lobby player cards, one per friend, positioned via the layout's LobbyCardPositions.
     /// </summary>
     private void RenderLobby(LeagueState state)
     {
+        // Draw locator crosses at all lobby card anchor slots for alignment calibration.
+        if (ShowDebugCrosses)
+        {
+            foreach (var pos in _layout.LobbyCardPositions)
+                PlaceCross(pos, Brushes.Yellow, size: 14);
+        }
+
         var lobby = state.Lobby;
         if (lobby == null || lobby.Friends.Count == 0)
             return;
@@ -229,95 +239,103 @@ public sealed class OverlayRenderer
             .ToList();
         var titles = TitleEvaluator.Evaluate(friendsWithStats);
 
-        const double cardWidth   = 320;
-        const double cardHeight  = 52;
-        const double cardPadding = 6;
-        const double startX      = 20;
-        const double startY      = 20;
+        var positions = _layout.LobbyCardPositions;
 
-        for (int i = 0; i < lobby.Friends.Count; i++)
+        // League fills lobby slots from the center outward: 42135 (1-indexed), so the
+        // first player (index 0) occupies the middle slot, the second takes the slot to
+        // the left, the third to the right, and so on.
+        // Map join-order index → visual slot index (0-based, left-to-right).
+        int[] slotMap = { 2, 1, 3, 0, 4 };
+
+        for (int i = 0; i < lobby.Friends.Count && i < slotMap.Length; i++)
         {
-            var friend = lobby.Friends[i];
-            var stats  = statsSnapshot.GetValueOrDefault(friend.Puuid);
-            var title  = titles.GetValueOrDefault(friend.Puuid);
+            var friend   = lobby.Friends[i];
+            var stats    = statsSnapshot.GetValueOrDefault(friend.Puuid);
+            var title    = titles.GetValueOrDefault(friend.Puuid);
+            int slotIndex = slotMap[i];
 
-            double y = startY + i * (cardHeight + cardPadding);
-            var card = CreateLobbyCard(friend, stats, title, cardWidth, cardHeight);
-            Canvas.SetLeft(card, startX);
-            Canvas.SetTop(card, y);
+            var card = CreateLobbyCard(stats, title, _layout.LobbyCardSize.Width, _layout.LobbyCardSize.Height);
+            Canvas.SetLeft(card, positions[slotIndex].X);
+            Canvas.SetTop(card, positions[slotIndex].Y);
             Canvas.SetZIndex(card, 100);
             _root.Children.Add(card);
         }
     }
 
     /// <summary>
-    /// Creates a single lobby player card showing name, tag, title, and basic stats.
+    /// Creates a single lobby player card showing name, title, and stats.
+    /// Layout (top to bottom, all centered):
+    ///   - Player name (small, muted) with optional host marker
+    ///   - Title (large, gold, bold) — the most prominent element
+    ///   - Stats line (small, muted) — shown once stats are loaded
+    /// Background is fully transparent so the card floats over the League client.
     /// </summary>
-    private static Border CreateLobbyCard(State.LobbyFriend friend, State.PlayerStats? stats, string? title, double width, double height)
+    private static FrameworkElement CreateLobbyCard( PlayerStats? stats, string? title, double width, double height)
     {
-        var nameText = friend.GameName;
-        if (!string.IsNullOrEmpty(friend.GameTag))
-            nameText += $" #{friend.GameTag}";
-        if (friend.IsLeader)
-            nameText += " (Host)";
 
-        var nameBlock = new System.Windows.Controls.TextBlock
-        {
-            Text       = nameText,
-            Foreground = Brushes.White,
-            FontSize   = 13,
-            FontWeight = FontWeights.SemiBold,
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
+        // ── Title line ───────────────────────────────────────────────────────
+        bool hasTitle  = title != null;
+        bool isLoading = stats == null;
 
-        var titleBlock = new System.Windows.Controls.TextBlock
+        var titleBlock = new TextBlock
         {
-            Text       = title ?? (stats == null ? "Loading..." : ""),
-            Foreground = title != null
+            Text      = hasTitle  ? title!
+                      : isLoading ? "Loading..."
+                      :             "",
+            Foreground          = hasTitle
                 ? new SolidColorBrush(Color.FromArgb(255, 255, 215, 0))    // gold
-                : new SolidColorBrush(Color.FromArgb(160, 200, 200, 200)), // dim grey
-            FontSize   = 11,
-            FontStyle  = title != null ? FontStyles.Normal : FontStyles.Italic,
-            TextTrimming = TextTrimming.CharacterEllipsis
+                : new SolidColorBrush(Color.FromArgb(120, 200, 200, 200)), // dim grey
+            FontSize            = hasTitle ? 16 : 12,
+            FontWeight          = hasTitle ? FontWeights.Bold : FontWeights.Normal,
+            FontStyle           = hasTitle ? FontStyles.Normal : FontStyles.Italic,
+            TextAlignment       = TextAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            TextTrimming        = TextTrimming.CharacterEllipsis,
         };
 
-        var stack = new System.Windows.Controls.StackPanel
+        // ── Stack ────────────────────────────────────────────────────────────
+        var stack = new StackPanel
         {
-            Orientation = System.Windows.Controls.Orientation.Vertical,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(10, 0, 10, 0)
+            Orientation         = Orientation.Vertical,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment   = VerticalAlignment.Center,
         };
-        stack.Children.Add(nameBlock);
+        
         stack.Children.Add(titleBlock);
 
-        // Stats line (shown once loaded)
+        // ── Stats line (once loaded) ─────────────────────────────────────────
         if (stats != null)
         {
-            string statsStr = $"Avg DMG {stats.AvgDamage:N0}  |  Avg Heal {stats.AvgHealing:N0}";
-            if (stats.WinStreak > 0)
-                statsStr = $"W{stats.WinStreak} streak  |  " + statsStr;
-            else if (stats.LossStreak > 0)
-                statsStr = $"L{stats.LossStreak} streak  |  " + statsStr;
+            var parts = new List<string>();
 
-            var statsBlock = new System.Windows.Controls.TextBlock
+            if (stats.WinStreak >= 1)
+                parts.Add($"W{stats.WinStreak}");
+            else if (stats.LossStreak >= 1)
+                parts.Add($"L{stats.LossStreak}");
+
+            parts.Add($"{stats.AvgDamage:N0} DMG");
+            parts.Add($"{stats.AvgHealing:N0} Heal");
+
+            var statsBlock = new TextBlock
             {
-                Text       = statsStr,
-                Foreground = new SolidColorBrush(Color.FromArgb(180, 180, 210, 255)),
-                FontSize   = 10,
-                TextTrimming = TextTrimming.CharacterEllipsis
+                Text                = string.Join("  ·  ", parts),
+                Foreground          = new SolidColorBrush(Color.FromArgb(160, 180, 210, 255)),
+                FontSize            = 10,
+                TextAlignment       = TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextTrimming        = TextTrimming.CharacterEllipsis,
+                Margin              = new Thickness(0, 2, 0, 0),
             };
             stack.Children.Add(statsBlock);
         }
 
+        // ── Card container ───────────────────────────────────────────────────
         return new Border
         {
-            Width             = width,
-            Height            = height,
-            Background        = new SolidColorBrush(Color.FromArgb(180, 10, 10, 30)),
-            BorderBrush       = new SolidColorBrush(Color.FromArgb(120, 100, 140, 255)),
-            BorderThickness   = new Thickness(1),
-            CornerRadius      = new CornerRadius(4),
-            Child             = stack
+            Width      = width,
+            Height     = height,
+            Background = Brushes.Transparent,
+            Child      = stack,
         };
     }
 
