@@ -32,14 +32,23 @@ public record ChampionSelectState(
 );
 
 /// <summary>
-/// Computed stats derived from a player's recent match history (last 5 games).
+/// Computed stats derived from a player's recent match history (last 20 games).
 /// </summary>
 public record PlayerStats(
-    int WinStreak,       // consecutive wins from most recent game backwards (0 if last game was a loss)
-    int LossStreak,      // consecutive losses from most recent game backwards (0 if last game was a win)
-    double AvgDamage,    // average totalDamageDealtToChampions over sample
-    double AvgHealing,   // average totalHeal over sample
-    double SurrenderRate // fraction of games that ended in surrender (either kind)
+    int    WinStreak,        // consecutive wins from most recent game backwards (0 if last game was a loss)
+    int    LossStreak,       // consecutive losses from most recent game backwards (0 if last game was a win)
+    double AvgDamage,        // average totalDamageDealtToChampions over sample
+    double AvgHealing,       // average totalHeal over sample
+    double SurrenderRate,    // fraction of games that ended in surrender (either kind)
+    double AvgDeaths,        // average deaths per game
+    double AvgKills,         // average kills per game
+    double AvgAssists,       // average assists per game
+    double AvgDamageTaken,   // average totalDamageTaken per game
+    double AvgSelfMitigated, // average damageSelfMitigated per game
+    double AvgCCTime,        // average timeCCingOthers per game
+    double AvgVisionScore,   // average visionScore per game
+    double AvgWardsPlaced,   // average wardsPlaced per game
+    double AvgCS             // average totalMinionsKilled per game
 );
 
 /// <summary>
