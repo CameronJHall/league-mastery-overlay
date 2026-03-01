@@ -129,12 +129,17 @@ internal sealed class ParticipantDto
 internal sealed class ParticipantStatsDto
 {
     public bool? Win { get; set; }
-    public int? Kills { get; set; }
-    public int? Deaths { get; set; }
-    public int? Assists { get; set; }
+    public int?  Kills { get; set; }
+    public int?  Deaths { get; set; }
+    public int?  Assists { get; set; }
     public long? TotalDamageDealtToChampions { get; set; }
     public long? TotalHeal { get; set; }
     public long? TotalDamageTaken { get; set; }
     public bool? GameEndedInSurrender { get; set; }
     public bool? GameEndedInEarlySurrender { get; set; }
+    public long? DamageSelfMitigated { get; set; }
+    public long? TimeCCingOthers { get; set; }
+    public int?  VisionScore { get; set; }
+    public int?  WardsPlaced { get; set; }
+    public int?  TotalMinionsKilled { get; set; }
 }

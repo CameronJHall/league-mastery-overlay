@@ -214,15 +214,13 @@ public partial class MainWindow : Window
         switch (newPhase)
         {
             case GamePhase.Lobby:
+                // Clear stale stats so every player seen in this lobby gets a fresh fetch.
+                _stateStore.ClearPlayerStatsCache();
                 _lobbyLoop?.Start();
                 break;
             case GamePhase.ChampSelect:
                 _stateStore.UpdateMasteryData(await _league.GetMasteryDataAsync());
                 _champSelectLoop?.Start();
-                break;
-            case GamePhase.InProgress:
-            case GamePhase.None: 
-                _stateStore.ClearPlayerStatsCache();
                 break;
         }
         

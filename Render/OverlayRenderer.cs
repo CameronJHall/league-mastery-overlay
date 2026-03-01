@@ -13,8 +13,8 @@ using static league_mastery_overlay.Util.WindowTracker;
 namespace league_mastery_overlay.Render;
 
 /// <summary>
-/// Responsible for rendering champion mastery icons at positions calculated by OverlayLayout.
-/// Does NOT handle layout math - that's OverlayLayout's job.
+/// Renders champion mastery overlays during champ select and player title cards during lobby.
+/// Layout math lives in OverlayLayout; this class only consumes the computed positions.
 /// </summary>
 public sealed class OverlayRenderer
 {
@@ -23,23 +23,24 @@ public sealed class OverlayRenderer
     private readonly OverlayLayout _layout;
     private readonly GridMapper? _gridMapper;
 
-    // Decoded BitmapImages keyed by (iconSet, level) so we only load each file once per session.
-    // A null value means the file wasn't cached on disk at last check; we retry next frame.
+    // Decoded BitmapImages keyed by (iconSet, level); null means not yet on disk — retried each frame.
     private readonly Dictionary<(MasteryIconSet, int), BitmapImage?> _imageCache = new();
 
-    // Toggle to visualise raw anchor positions as crosses.
-    // Each cross marks the exact point passed to PlaceElement (top-left of the tile grid).
+    // Title cache — re-evaluated only when lobby membership or stats availability changes.
+    // Key format: sorted puuids joined with '|', '!' suffix on each puuid that has stats loaded.
+    // e.g. "aaa|bbb!|ccc" — bbb has stats, aaa and ccc do not.
+    private string? _lastTitleKey;
+    private Dictionary<string, TitleEvaluator.TitleResult?> _cachedTitles = new();
+
     public bool ShowDebugCrosses { get; set; } = false;
 
-    // Toggle to show the z-order / foreground-window debug panel.
     public bool ShowDebugPanel { get; set; } = false;
 
     // When true, renders overlay content even when League is not the foreground window.
     // Intended for debug/calibration use only.
     public bool ForceRender { get; set; } = false;
 
-    // Controls which set of mastery crest PNGs is used.
-    // Toggled via the system tray context menu.
+    // Controls which set of mastery crest PNGs is used; toggled via the system tray menu.
     public MasteryIconSet ActiveIconSet
     {
         get => _activeIconSet;
@@ -47,7 +48,6 @@ public sealed class OverlayRenderer
         {
             if (_activeIconSet == value) return;
             _activeIconSet = value;
-            // Clear cache so the new set is loaded on the next render.
             _imageCache.Clear();
         }
     }
@@ -62,8 +62,7 @@ public sealed class OverlayRenderer
     }
 
     /// <summary>
-    /// Called whenever the League window is resized.
-    /// This ensures layout rects are always in sync with actual window size.
+    /// Called whenever the League window is resized to keep layout positions in sync.
     /// </summary>
     public void UpdateWindowSize(Size newSize)
     {
@@ -71,13 +70,14 @@ public sealed class OverlayRenderer
     }
 
     /// <summary>
-    /// Main render loop - place icons at their calculated positions.
+    /// Main render entry point. Clears previous frame, then draws the appropriate overlay
+    /// for the current game phase. No-ops when League is not foregrounded (unless ForceRender).
     /// </summary>
     public void Render(bool isLeagueForegrounded, DebugSnapshot? debug = null)
     {
         LeagueState state = _stateStore.Get();
 
-        // Clear previous render (but preserve debug grid elements)
+        // Clear previous frame, preserving the debug grid layer.
         var toRemove = _root.Children
             .OfType<FrameworkElement>()
             .Where(e => e.Tag?.ToString() != "DebugGrid")
@@ -88,24 +88,18 @@ public sealed class OverlayRenderer
             _root.Children.Remove(element);
         }
 
-        // Render debug panel if enabled — always shown regardless of foreground state
-        // so it's visible even when diagnosing why the overlay is hidden
+        // Debug panel is shown regardless of foreground state so it's visible when diagnosing
+        // why the overlay is hidden.
         if (ShowDebugPanel && debug != null)
             RenderDebugPanel(debug);
 
-        // Collapse all game content when League is not the foreground window.
-        // We hide content rather than the Window itself to avoid the repaint
-        // flicker that Window.Visibility changes cause.
+        // Hide content rather than the window itself to avoid repaint flicker.
         if (!isLeagueForegrounded && !ForceRender)
             return;
 
-        // Hide overlay content if not in a phase we render
         if (state.Phase != GamePhase.ChampSelect && state.Phase != GamePhase.Lobby)
-        {
             return;
-        }
 
-        // Re-render debug grid if active
         _gridMapper?.Render();
 
         if (state.Phase == GamePhase.Lobby)
@@ -114,9 +108,8 @@ public sealed class OverlayRenderer
             return;
         }
 
-        // ── ChampSelect render ────────────────────────────────────────────────
+        // ── ChampSelect ───────────────────────────────────────────────────────
 
-        // Render crosses at raw anchor positions for calibration
         if (ShowDebugCrosses)
         {
             PlaceCross(_layout.PlayerChampionPos, Brushes.Red);
@@ -124,7 +117,6 @@ public sealed class OverlayRenderer
                 PlaceCross(pos, Brushes.Cyan);
         }
 
-        // Render my pick at the anchor position
         if (state.ChampionSelect?.MyChampion != null)
         {
             var id = state.ChampionSelect.MyChampion.Value;
@@ -134,7 +126,6 @@ public sealed class OverlayRenderer
             _root.Children.Add(overlay);
         }
 
-        // Render bench champions at their grid positions
         var benchIds = state.ChampionSelect?.BenchChampions ?? Array.Empty<int>();
         for (int i = 0; i < benchIds.Length && i < _layout.BenchIconPositions.Length; i++)
         {
@@ -146,9 +137,7 @@ public sealed class OverlayRenderer
     }
 
     /// <summary>
-    /// Renders a semi-transparent debug panel in the bottom-left of the overlay
-    /// showing foreground-window PID tracking state so z-order/visibility issues
-    /// can be diagnosed at runtime.
+    /// Semi-transparent debug panel showing foreground-window PID tracking state.
     /// </summary>
     private void RenderDebugPanel(DebugSnapshot debug)
     {
@@ -204,7 +193,7 @@ public sealed class OverlayRenderer
             Tag             = "DebugPanel",
         };
 
-        // Measure so we can position at the bottom-left
+        // Measure so we can position at bottom-left.
         panel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         double panelH = panel.DesiredSize.Height > 0 ? panel.DesiredSize.Height : 90;
 
@@ -215,11 +204,12 @@ public sealed class OverlayRenderer
     }
 
     /// <summary>
-    /// Renders lobby player cards, one per friend, positioned via the layout's LobbyCardPositions.
+    /// Renders title cards for all lobby members. The local player is always placed at
+    /// slot 2 (centre). Other members follow the League client's nonSelfCards layout:
+    ///   API join-order index 0 → slot 1, 1 → slot 3, 2 → slot 0, 3 → slot 4.
     /// </summary>
     private void RenderLobby(LeagueState state)
     {
-        // Draw locator crosses at all lobby card anchor slots for alignment calibration.
         if (ShowDebugCrosses)
         {
             foreach (var pos in _layout.LobbyCardPositions)
@@ -230,56 +220,70 @@ public sealed class OverlayRenderer
         if (lobby == null || lobby.Friends.Count == 0)
             return;
 
-        // Snapshot the stats cache once per frame — avoids holding the lock across rendering
+        // Snapshot the stats cache once per frame to avoid holding the lock across rendering.
         var statsSnapshot = _stateStore.GetPlayerStatsSnapshot();
 
-        // Evaluate titles from whatever stats are available right now
+        // Re-evaluate titles only when lobby membership or stats availability changes
+        // so the random pool sample stays stable for the lifetime of a lobby.
         var friendsWithStats = lobby.Friends
             .Select(f => (Friend: f, Stats: statsSnapshot.GetValueOrDefault(f.Puuid)))
             .ToList();
-        var titles = TitleEvaluator.Evaluate(friendsWithStats);
+
+        var titleKey = BuildTitleKey(friendsWithStats);
+        if (titleKey != _lastTitleKey)
+        {
+            _cachedTitles  = TitleEvaluator.Evaluate(friendsWithStats);
+            _lastTitleKey  = titleKey;
+        }
+        var titles = _cachedTitles;
 
         var positions = _layout.LobbyCardPositions;
 
-        // League fills lobby slots from the center outward: 42135 (1-indexed), so the
-        // first player (index 0) occupies the middle slot, the second takes the slot to
-        // the left, the third to the right, and so on.
-        // Map join-order index → visual slot index (0-based, left-to-right).
-        int[] slotMap = { 2, 1, 3, 0, 4 };
+        // Maps join-order index of non-local members to visual slot (0-based, left-to-right).
+        // Derived from the nonSelfCards algorithm in rcp-fe-lol-parties.js.
+        int[] slotMap = { 1, 3, 0, 4 };
 
-        for (int i = 0; i < lobby.Friends.Count && i < slotMap.Length; i++)
+        var otherFriends = lobby.Friends
+            .Where(f => f.Puuid != lobby.LocalPlayerPuuid)
+            .ToList();
+
+        for (int i = 0; i < otherFriends.Count && i < slotMap.Length; i++)
         {
-            var friend   = lobby.Friends[i];
-            var stats    = statsSnapshot.GetValueOrDefault(friend.Puuid);
-            var title    = titles.GetValueOrDefault(friend.Puuid);
-            int slotIndex = slotMap[i];
+            var friend      = otherFriends[i];
+            var stats       = statsSnapshot.GetValueOrDefault(friend.Puuid);
+            var titleResult = titles.GetValueOrDefault(friend.Puuid);
+            int slotIndex   = slotMap[i];
 
-            var card = CreateLobbyCard(stats, title, _layout.LobbyCardSize.Width, _layout.LobbyCardSize.Height);
+            var card = CreateLobbyCard(stats, titleResult, _layout.LobbyCardSize.Width, _layout.LobbyCardSize.Height);
             Canvas.SetLeft(card, positions[slotIndex].X);
             Canvas.SetTop(card, positions[slotIndex].Y);
             Canvas.SetZIndex(card, 100);
             _root.Children.Add(card);
         }
+
+        // Local player is always in the centre slot (slot 2).
+        var localStats  = statsSnapshot.GetValueOrDefault(lobby.LocalPlayerPuuid);
+        var localTitle  = titles.GetValueOrDefault(lobby.LocalPlayerPuuid);
+        var localCard   = CreateLobbyCard(localStats, localTitle, _layout.LobbyCardSize.Width, _layout.LobbyCardSize.Height);
+        Canvas.SetLeft(localCard, positions[2].X);
+        Canvas.SetTop(localCard, positions[2].Y);
+        Canvas.SetZIndex(localCard, 100);
+        _root.Children.Add(localCard);
     }
 
     /// <summary>
-    /// Creates a single lobby player card showing name, title, and stats.
-    /// Layout (top to bottom, all centered):
-    ///   - Player name (small, muted) with optional host marker
-    ///   - Title (large, gold, bold) — the most prominent element
-    ///   - Stats line (small, muted) — shown once stats are loaded
-    /// Background is fully transparent so the card floats over the League client.
+    /// Builds a transparent card containing a title line and (when awarded) a stat line.
+    /// Shows "Loading..." while stats are still being fetched.
     /// </summary>
-    private static FrameworkElement CreateLobbyCard( PlayerStats? stats, string? title, double width, double height)
+    private static FrameworkElement CreateLobbyCard(
+        PlayerStats? stats, TitleEvaluator.TitleResult? titleResult, double width, double height)
     {
-
-        // ── Title line ───────────────────────────────────────────────────────
-        bool hasTitle  = title != null;
+        bool hasTitle  = titleResult.HasValue;
         bool isLoading = stats == null;
 
         var titleBlock = new TextBlock
         {
-            Text      = hasTitle  ? title!
+            Text      = hasTitle  ? titleResult!.Value.Title
                       : isLoading ? "Loading..."
                       :             "",
             Foreground          = hasTitle
@@ -293,43 +297,29 @@ public sealed class OverlayRenderer
             TextTrimming        = TextTrimming.CharacterEllipsis,
         };
 
-        // ── Stack ────────────────────────────────────────────────────────────
         var stack = new StackPanel
         {
             Orientation         = Orientation.Vertical,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment   = VerticalAlignment.Center,
         };
-        
+
         stack.Children.Add(titleBlock);
 
-        // ── Stats line (once loaded) ─────────────────────────────────────────
-        if (stats != null)
+        if (hasTitle)
         {
-            var parts = new List<string>();
-
-            if (stats.WinStreak >= 1)
-                parts.Add($"W{stats.WinStreak}");
-            else if (stats.LossStreak >= 1)
-                parts.Add($"L{stats.LossStreak}");
-
-            parts.Add($"{stats.AvgDamage:N0} DMG");
-            parts.Add($"{stats.AvgHealing:N0} Heal");
-
-            var statsBlock = new TextBlock
+            stack.Children.Add(new TextBlock
             {
-                Text                = string.Join("  ·  ", parts),
+                Text                = titleResult!.Value.StatLine,
                 Foreground          = new SolidColorBrush(Color.FromArgb(160, 180, 210, 255)),
                 FontSize            = 10,
                 TextAlignment       = TextAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 TextTrimming        = TextTrimming.CharacterEllipsis,
                 Margin              = new Thickness(0, 2, 0, 0),
-            };
-            stack.Children.Add(statsBlock);
+            });
         }
 
-        // ── Card container ───────────────────────────────────────────────────
         return new Border
         {
             Width      = width,
@@ -351,7 +341,6 @@ public sealed class OverlayRenderer
 
     /// <summary>
     /// Renders a small cross centred on the given point for anchor calibration.
-    /// The cross is drawn as two lines intersecting at (position.X, position.Y).
     /// </summary>
     private void PlaceCross(Point position, Brush color, double size = 10)
     {
@@ -386,8 +375,8 @@ public sealed class OverlayRenderer
     }
 
     /// <summary>
-    /// Per-slot configuration sourced from Anchors. Passed into CreateChampionOverlay
-    /// so the player and bench tiles can be calibrated independently.
+    /// Per-slot configuration for champion tile rendering. Player and bench tiles
+    /// have independent sizes and crest offsets defined in Anchors.
     /// </summary>
     private readonly record struct ChampionOverlayConfig(
         Size TileSize,
@@ -409,9 +398,8 @@ public sealed class OverlayRenderer
     }
 
     /// <summary>
-    /// Creates a transparent overlay element sized to the champion tile.
-    /// The mastery crest PNG is pinned to the top-right corner of the tile,
-    /// and a progress bar is anchored to the bottom edge.
+    /// Builds a transparent champion tile overlay with a mastery crest (top-right)
+    /// and a progress bar (bottom edge).
     /// </summary>
     private Grid CreateChampionOverlay(MasteryData? mastery, ChampionOverlayConfig config)
     {
@@ -439,7 +427,6 @@ public sealed class OverlayRenderer
         tile.Children.Add(crest);
 
         // --- Progress bar (bottom edge) ---
-        // Outer track (dark background)
         var barTrack = new Border
         {
             Height = config.ProgressBarHeight,
@@ -474,18 +461,15 @@ public sealed class OverlayRenderer
     }
 
     /// <summary>
-    /// Returns the decoded BitmapImage for the given level and icon set.
-    /// Hits an in-memory cache after the first load so disk is only read once per image per session.
-    /// Returns null if the file has not been downloaded yet — WPF Image renders blank, and we
-    /// retry on the next frame so icons appear as soon as the download completes.
+    /// Returns the decoded BitmapImage for the given level and icon set, caching after first load.
+    /// Returns null if the file isn't on disk yet — the caller renders blank and retries next frame.
     /// </summary>
     private BitmapImage? LoadMasteryCrest(int level, MasteryIconSet iconSet)
     {
         var key = (iconSet, level);
 
-        // Return the cached result if we already have one (including a cached null).
-        // A cached null means the file wasn't on disk last time; re-check so we pick it up
-        // as soon as the background download finishes.
+        // Cached null means file wasn't on disk last check; re-check so we pick it up as soon
+        // as the background download finishes.
         if (_imageCache.TryGetValue(key, out var cached) && cached != null)
             return cached;
 
@@ -519,8 +503,8 @@ public sealed class OverlayRenderer
     }
 
 /// <summary>
-/// Returns a LinearGradientBrush and glow color based on progress (0 to 1).
-/// Color transitions from red -> yellow -> green, with a light highlight on the right edge.
+/// Returns a gradient brush and glow color for the progress bar.
+/// Color transitions red → yellow → green across the 0–1 range.
 /// </summary>
     private static (LinearGradientBrush brush, Color glowColor) GetProgressBrush(double progress)
     {
@@ -547,5 +531,18 @@ public sealed class OverlayRenderer
         };
 
         return (brush, baseColor);
+    }
+
+    /// <summary>
+    /// Builds a stable cache key encoding lobby membership and which members have stats loaded.
+    /// Titles are re-evaluated only when this key changes.
+    /// Format: sorted puuids joined with '|', '!' suffix on each puuid that has stats.
+    /// </summary>
+    private static string BuildTitleKey(List<(LobbyFriend Friend, PlayerStats? Stats)> entries)
+    {
+        var parts = entries
+            .Select(e => e.Stats != null ? e.Friend.Puuid + "!" : e.Friend.Puuid)
+            .OrderBy(s => s, StringComparer.Ordinal);
+        return string.Join("|", parts);
     }
 }
